@@ -68,6 +68,11 @@ namespace Hearthstone_Deck_Tracker.Utility
 				str = LocAgeMinutes;
 				time = (int)duration.TotalMinutes;
 			}
+			else if(duration.TotalSeconds == 0)
+			{
+				str = LocAgeMinutes;
+				time = 0;
+			}
 			else
 			{
 				str = LocAgeMinute;
