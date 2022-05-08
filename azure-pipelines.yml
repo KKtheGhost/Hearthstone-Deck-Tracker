@@ -30,10 +30,10 @@ steps:
     configuration: '$(buildConfiguration)'
 
 - task: VSTest@2
+  continueOnError: true
   inputs:
     platform: '$(buildPlatform)'
     configuration: '$(buildConfiguration)'
-    testAssemblyVer2: '**\\*Test*\\!*LocUtilTests\n!**\\HDTTests\\Hearthstone\\CardDbTest*'
 
 - task: PublishBuildArtifacts@1
   displayName: 'Publish Artifact: HDT'
