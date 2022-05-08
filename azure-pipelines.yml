@@ -7,7 +7,6 @@ trigger:
 - master
 
 pool:
-  name: Kivinsae Pipelines
   vmImage: 'windows-latest'
 
 variables:
