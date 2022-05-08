@@ -231,9 +231,12 @@ namespace Hearthstone_Deck_Tracker
 			if(_formattedText != null || Text == null)
 				return;
 
-			_formattedText = new FormattedText(Text, CultureInfo.CurrentUICulture, FlowDirection,
+		 /*	_formattedText = new FormattedText(Text, CultureInfo.CurrentUICulture, FlowDirection,
 			                                   new Typeface(FontFamily, FontStyle, FontWeight, FontStretches.Condensed), FontSize, Brushes.Black, 
-											   null, TextFormattingMode.Ideal);
+											   null, TextFormattingMode.Ideal); */
+			_formattedText = new FormattedText(Text, CultureInfo.CurrentUICulture, FlowDirection,
+											   new Typeface(FontFamily, FontStyle, FontWeight, FontStretches.Condensed), FontSize, Brushes.Black,
+											   VisualTreeHelper.GetDpi(this).PixelsPerDip);
 
 			UpdateFormattedText();
 		}

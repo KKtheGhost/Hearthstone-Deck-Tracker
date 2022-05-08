@@ -145,7 +145,7 @@ namespace Hearthstone_Deck_Tracker.Utility.Assets
 					}
 					SerializeLRUCache();
 				}
-				catch(Exception ex)
+				catch(Exception)
 				{
 
 				}
