@@ -10,7 +10,6 @@ namespace Hearthstone_Deck_Tracker.Utility.Themes
 		public static GeometryDrawing[] GetOutlinedText(string text, double maxFontSize, Rect rect, Brush fill, Brush stroke, Typeface typeFace,
 												  double strokeThickness = 2, bool centered = false)
 		{
-			/* var fText = new FormattedText(text, CultureInfo.GetCultureInfo("en-us"), FlowDirection.LeftToRight, typeFace, maxFontSize, fill); */
 			var fText = new FormattedText(text, CultureInfo.GetCultureInfo("en-us"), FlowDirection.LeftToRight, typeFace, maxFontSize, fill, 1.0);
 			if(!double.IsNaN(rect.Width))
 			{
