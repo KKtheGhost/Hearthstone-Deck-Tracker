@@ -4,7 +4,6 @@ using System;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Enums;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
-using Hearthstone_Deck_Tracker.LogReader.Interfaces;
 
 #endregion
 
@@ -75,6 +74,7 @@ namespace Hearthstone_Deck_Tracker
 		void HandleOpponentHandToDeck(Entity entity, string? cardId, int turn);
 		void HandleOpponentPlayToHand(Entity entity, string? cardId, int turn, int id);
 		void HandleOpponentPlayToDeck(Entity entity, string? cardId, int turn);
+		void HandleOpponentSecretRemove(Entity entity, string? cardId, int turn);
 		void HandleOpponentSecretTrigger(Entity entity, string? cardId, int turn, int otherId);
 		void HandleOpponentDeckDiscard(Entity entity, string? cardId, int turn);
 		void SetOpponentHero(string? cardId);
@@ -97,5 +97,12 @@ namespace Hearthstone_Deck_Tracker
 		void HandlePlayerHandCostReduction(int value);
 		void HandleOpponentHandCostReduction(int value);
 		void HandleMercenariesStateChange();
+		void HandleBattlegroundsPlayerTechLevel(int id, int value);
+		void HandleBattlegroundsPlayerTriples(int id, int value);
+		void HandlePlayerAbyssalCurse(int value);
+		void HandleOpponentAbyssalCurse(int value);
+		void HandleQuestRewardDatabaseId(int id, int value);
+		void HandleBattlegroundsPlayerQuestPicked(Entity entity);
+		void HandleBattlegroundsPlayerQuestPickerRemoval(Entity entity);
 	}
 }

@@ -35,6 +35,10 @@ using Region = Hearthstone_Deck_Tracker.Enums.Region;
 using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 using System.Web;
 using System.Security.Cryptography.X509Certificates;
+using Hearthstone_Deck_Tracker.HsReplay;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Enums;
+using System.Windows.Forms;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Actions;
 
 #endregion
 
@@ -103,6 +107,7 @@ namespace Hearthstone_Deck_Tracker
 			CardSet.DALARAN, CardSet.ULDUM, CardSet.DRAGONS, CardSet.YEAR_OF_THE_DRAGON, CardSet.DEMON_HUNTER_INITIATE,
 			CardSet.BASIC, CardSet.EXPERT1, CardSet.LEGACY,
 			CardSet.BLACK_TEMPLE, CardSet.SCHOLOMANCE, CardSet.DARKMOON_FAIRE,
+			CardSet.THE_BARRENS, CardSet.STORMWIND, CardSet.ALTERAC_VALLEY, CardSet.PLACEHOLDER_202204
 		}.Select(HearthDbConverter.SetConverter).ToArray();
 
 		public static string[] ClassicOnlySets = new[]
@@ -114,6 +119,7 @@ namespace Hearthstone_Deck_Tracker
 
 		public static Dictionary<string, MediaColor> ClassicClassColors = new Dictionary<string, MediaColor>
 		{
+			{"Deathknight", MediaColor.FromArgb(0xFF, 0xC4, 0x1E, 0x3A)}, 
 			{"DemonHunter", MediaColor.FromArgb(0xFF, 0xA3, 0x30, 0xC9)}, //#A330C9, 
 			{"Druid", MediaColor.FromArgb(0xFF, 0xFF, 0x7D, 0x0A)}, //#FF7D0A, 
 			{"Death Knight", MediaColor.FromArgb(0xFF, 0xC4, 0x1F, 0x3B)}, //#C41F3B,
@@ -130,6 +136,7 @@ namespace Hearthstone_Deck_Tracker
 
 		public static Dictionary<string, MediaColor> HearthStatsClassColors = new Dictionary<string, MediaColor>
 		{
+			{"Deathknight", MediaColor.FromArgb(0xFF, 0xC4, 0x1E, 0x3A)}, 
 			{"DemonHunter", MediaColor.FromArgb(0xFF, 0xA3, 0x30, 0xC9)}, //#A330C9, 
 			{"Druid", MediaColor.FromArgb(0xFF, 0x62, 0x31, 0x13)}, //#623113,
 			{"Death Knight", MediaColor.FromArgb(0xFF, 0xC4, 0x1F, 0x3B)}, //#C41F3B,
@@ -232,11 +239,7 @@ namespace Hearthstone_Deck_Tracker
 			view1.SortDescriptions.Add(new SortDescription(nameof(Card.Cost), ListSortDirection.Ascending));
 			view1.SortDescriptions.Add(new SortDescription(nameof(Card.LocalizedName), ListSortDirection.Ascending));
 		}
-
-
-		public static string DeckToIdString(Deck deck)
-			=> deck.GetSelectedDeckVersion().Cards.Aggregate("", (current, card) => current + (card.Id + ":" + card.Count + ";"));
-
+		
 		public static void UpdateEverything(GameV2 game)
 		{
 			if(Core.Overlay.IsVisible || Core.Windows.CapturableOverlay != null)
@@ -247,7 +250,7 @@ namespace Hearthstone_Deck_Tracker
 				Core.Windows.PlayerWindow.SetCardCount(game.Player.HandCount, !gameStarted ? 30 : game.Player.DeckCount);
 
 			if(Core.Windows.OpponentWindow.IsVisible)
-				Core.Windows.OpponentWindow.SetOpponentCardCount(game.Opponent.HandCount, !gameStarted ? 30 : game.Opponent.DeckCount, game.Opponent.HasCoin);
+				Core.Windows.OpponentWindow.SetOpponentCardCount(game.Opponent.HandCount, !gameStarted || !game.IsMulliganDone ? 30 - game.Opponent.HandCount: game.Opponent.DeckCount, game.Opponent.HasCoin);
 		}
 
 		//http://stackoverflow.com/questions/23927702/move-a-folder-from-one-drive-to-another-in-c-sharp
@@ -614,6 +617,67 @@ namespace Hearthstone_Deck_Tracker
 			return new SolidColorBrush(MediaColor.FromRgb(color.R, color.G, color.B));
 		}
 
+		private static int Scale(double x, int from, int to)
+		{
+			var intensity = 75;
+			var v = Math.Pow(x, 1 - intensity / 100);
+			return (int)(from + (to - from) * v);
+		}
+
+		private static int[] ScaleTriple(double x, int[] from, int[] to)
+		{
+			return new []{
+				Scale(x, from[0], to[0]),
+				Scale(x, from[1], to[1]),
+				Scale(x, from[2], to[2]),
+			};
+		}
+
+		private static SolidColorBrush Hsl(int[] values)
+		{
+			var h = values[0];
+			var s = values[1] / 100f;
+			var l = values[2] / 100f;
+
+			var c = (1 - Math.Abs(2 * l - 1)) * s;
+			var x = c * (1 - Math.Abs((h / 60f) % 2 - 1));
+			var m = l - c / 2f;
+
+			double r = 0;
+			double g = 0;
+			double b = 0;
+
+			if(0 <= h && h < 60)
+			{
+				r = c; g = x; b = 0;
+			}
+			else if(60 <= h && h < 120)
+			{
+				r = x; g = c; b = 0;
+			}
+			else if(120 <= h && h < 180)
+			{
+				r = 0; g = c; b = x;
+			}
+			else if(180 <= h && h < 240)
+			{
+				r = 0; g = x; b = c;
+			}
+			else if(240 <= h && h < 300)
+			{
+				r = x; g = 0; b = c;
+			}
+			else if(300 <= h && h < 360)
+			{
+				r = c; g = 0; b = x;
+			}
+			r = Math.Round((r + m) * 255);
+			g = Math.Round((g + m) * 255);
+			b = Math.Round((b + m) * 255);
+
+			return new SolidColorBrush(MediaColor.FromRgb((byte)r, (byte)g, (byte)b));
+		}
+
 		//See https://msdn.microsoft.com/en-us/library/hh925568(v=vs.110).aspx for value conversion
 		public static int GetInstalledDotNetVersion()
 		{
@@ -729,10 +793,14 @@ namespace Hearthstone_Deck_Tracker
 			return name + "/" + GetCurrentVersion();
 		}
 
-		internal static void OpenBattlegroundsHeroPicker(int[] heroIds)
+		internal static void OpenBattlegroundsHeroPicker(int[] heroIds, int? mmr)
 		{
 			var encodedHeroIds = HttpUtility.UrlEncode(string.Join(",", heroIds));
 			var url = $"{BuildHsReplayNetUrl("battlegrounds/heroes", "bgs_toast")}#heroes={encodedHeroIds}";
+
+			if(mmr.HasValue)
+				url += $"&mmr={mmr.Value}";
+
 			var availableRaces = BattlegroundsUtils.GetAvailableRaces(Core.Game.CurrentGameStats?.GameId);
 			if(availableRaces?.Count > 0)
 			{
@@ -742,6 +810,7 @@ namespace Hearthstone_Deck_Tracker
 
 			}
 			TryOpenUrl(url);
+			HSReplayNetClientAnalytics.TryTrackToastClick(Franchise.Battlegrounds, ToastAction.Toast.BattlegroundsHeroPicker);
 		}
 
 		public static async Task<T?> RetryWhileNull<T>(Func<T> func, int tries = 5, int delay = 150)
@@ -754,6 +823,20 @@ namespace Hearthstone_Deck_Tracker
 				await Task.Delay(delay);
 			}
 			return default;
+		}
+
+		public static Rectangle GetHearthstoneMonitorRect()
+		{
+			var rect = GetHearthstoneRect(true);
+			var screen = Screen.FromPoint(rect.Location);
+			return screen.Bounds;
+		}
+
+		public static int ToPrettyNumber(int n)
+		{
+			var divisor = Math.Max(Math.Pow(10, (Math.Floor(Math.Log10(n)) - 1)), 1);
+			var pn = Math.Floor(n / divisor) * divisor;
+			return (int)pn;
 		}
 	}
 }

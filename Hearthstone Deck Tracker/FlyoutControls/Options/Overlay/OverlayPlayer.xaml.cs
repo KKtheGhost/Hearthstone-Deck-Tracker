@@ -77,6 +77,8 @@ namespace Hearthstone_Deck_Tracker.FlyoutControls.Options.Overlay
 			ComboBoxGalakrond.SelectedItem = Config.Instance.PlayerGalakrondCounter;
 			ComboBoxLibram.ItemsSource = Enum.GetValues(typeof(DisplayMode)).Cast<DisplayMode>();
 			ComboBoxLibram.SelectedItem = Config.Instance.PlayerLibramCounter;
+			ComboBoxAbyssal.ItemsSource = Enum.GetValues(typeof(DisplayMode)).Cast<DisplayMode>();
+			ComboBoxAbyssal.SelectedItem = Config.Instance.PlayerAbyssalCurseCounter;
 
 			ElementSorterPlayer.IsPlayer = true;
 			SetPanel();
@@ -101,6 +103,10 @@ namespace Hearthstone_Deck_Tracker.FlyoutControls.Options.Overlay
 					case Enums.DeckPanel.CardsBottom:
 						ElementSorterPlayer.AddItem(new ElementSorterItem(panel, !Config.Instance.HidePlayerCardsBottom,
 																		  value => Config.Instance.HidePlayerCardsBottom = !value, true));
+						break;
+					case Enums.DeckPanel.Sideboards:
+						ElementSorterPlayer.AddItem(new ElementSorterItem(panel, !Config.Instance.HidePlayerSideboards,
+																		  value => Config.Instance.HidePlayerSideboards = !value, true));
 						break;
 					case Enums.DeckPanel.CardCounter:
 						ElementSorterPlayer.AddItem(new ElementSorterItem(panel, !Config.Instance.HidePlayerCardCount,
@@ -335,6 +341,14 @@ namespace Hearthstone_Deck_Tracker.FlyoutControls.Options.Overlay
 			if(!_initialized)
 				return;
 			Config.Instance.PlayerLibramCounter = (DisplayMode)ComboBoxLibram.SelectedItem;
+			Config.Save();
+		}
+
+		private void ComboBoxAbyssal_SelectionChanged(object sender, SelectionChangedEventArgs e)
+		{
+			if(!_initialized)
+				return;
+			Config.Instance.PlayerAbyssalCurseCounter = (DisplayMode)ComboBoxAbyssal.SelectedItem;
 			Config.Save();
 		}
 	}

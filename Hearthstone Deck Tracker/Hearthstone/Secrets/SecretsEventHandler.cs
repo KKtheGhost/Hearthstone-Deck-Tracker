@@ -12,6 +12,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 		private const int MultiSecretResolveDelay = 750;
 		private int _avengeDeathRattleCount;
 		private bool _awaitingAvenge;
+		private int _lastStartOfTurnCheck;
 		private int _lastStartOfTurnDamageCheck;
 		private int _lastStartOfTurnMinionCheck;
 		private HashSet<Entity> EntititesInHandOnMinionsPlayed = new HashSet<Entity>();
@@ -19,7 +20,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 		private int _lastPlayedMinionId;
 		protected List<MultiIdCard> SavedSecrets = new List<MultiIdCard>();
 
-		private bool FreeSpaceOnBoard => Game.OpponentMinionCount < 7;
+		private bool FreeSpaceOnBoard => Game.OpponentBoardCount < 7;
 		private bool FreeSpaceInHand => Game.OpponentHandCount < 10;
 		private bool HandleAction => HasActiveSecrets && Config.Instance.AutoGrayoutSecrets;
 		private bool IsAnyMinionInOpponentsHand => EntititesInHandOnMinionsPlayed.Any(entity => entity.IsMinion);
@@ -42,6 +43,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 		{
 			_avengeDeathRattleCount = 0;
 			_awaitingAvenge = false;
+			_lastStartOfTurnCheck = 0;
 			_lastStartOfTurnDamageCheck = 0;
 			_lastStartOfTurnMinionCheck = 0;
 			OpponentTookDamageDuringTurns.Clear();
@@ -100,7 +102,12 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 				}
 
 				if(freeSpaceOnBoard)
+				{
 					exclude.Add(Hunter.WanderingMonster);
+
+					if(attacker.IsMinion)
+						exclude.Add(Mage.VengefulVisage);
+				}
 
 				exclude.Add(Mage.IceBarrier);
 				exclude.Add(Hunter.ExplosiveTrap);
@@ -164,6 +171,8 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 				exclude.Add(Hunter.Snipe);
 				SaveSecret(Mage.ExplosiveRunes);
 				exclude.Add(Mage.ExplosiveRunes);
+				SaveSecret(Mage.Objection);
+				exclude.Add(Mage.Objection);
 				SaveSecret(Mage.PotionOfPolymorph);
 				exclude.Add(Mage.PotionOfPolymorph);
 				SaveSecret(Paladin.Repentance);
@@ -176,10 +185,14 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 				exclude.Add(Mage.MirrorEntity);
 				SaveSecret(Rogue.Ambush);
 				exclude.Add(Rogue.Ambush);
+				SaveSecret(Hunter.Zombeeees);
+				exclude.Add(Hunter.Zombeeees);
 			}
 
 			if(FreeSpaceInHand)
 				exclude.Add(Mage.FrozenClone);
+
+			exclude.Add(Rogue.Kidnap);
 
 			//Hidden cache will only trigger if the opponent has a minion in hand. 
 			//We might not know this for certain - requires additional tracking logic.
@@ -236,7 +249,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 
 			// redemption never triggers if a deathrattle effect fills up the board
 			// effigy can trigger ahead of the deathrattle effect, but only if effigy was played before the deathrattle minion
-			if(Game.OpponentMinionCount < 7 - numDeathrattleMinions)
+			if(Game.OpponentBoardCount < 7 - numDeathrattleMinions)
 				exclude.Add(Paladin.Redemption);
 
 			// TODO: break ties when Effigy + Deathrattle played on the same turn
@@ -337,6 +350,11 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 		{
 			if(!HandleAction)
 				return;
+			if(Game.OpponentEntity.IsCurrentPlayer && turn > _lastStartOfTurnCheck)
+			{
+				_lastStartOfTurnCheck = turn;
+				Exclude(Rogue.Perjury);
+			}
 			if(Game.OpponentEntity.IsCurrentPlayer && turn > _lastStartOfTurnMinionCheck)
 			{
 				if(entity.IsMinion && entity.IsControlledBy(Game.Opponent.Id))
@@ -367,18 +385,18 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 
 			var exclude = new List<MultiIdCard>();
 
-			if(FreeSpaceOnBoard)
+
+			if(Game.PlayerEntity?.GetTag(GameTag.NUM_CARDS_PLAYED_THIS_TURN) >= 3)
 			{
-				if(Game.PlayerEntity?.GetTag(GameTag.NUM_CARDS_PLAYED_THIS_TURN) >= 3)
+				exclude.Add(Hunter.MotionDenied);
+
+				if(FreeSpaceOnBoard)
 				{
 					exclude.Add(Hunter.RatTrap);
 					exclude.Add(Paladin.GallopingSavior);
 				}
-			}
 
-			if(FreeSpaceInHand)
-			{
-				if(Game.PlayerEntity?.GetTag(GameTag.NUM_CARDS_PLAYED_THIS_TURN) >= 3)
+				if(FreeSpaceInHand)
 					exclude.Add(Paladin.HiddenWisdom);
 			}
 
@@ -428,6 +446,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 						exclude.Add(Mage.Spellbender);
 					exclude.Add(Hunter.CatTrick);
 					exclude.Add(Mage.NetherwindPortal);
+					exclude.Add(Rogue.StickySituation);
 				}
 
 				if (Game.PlayerMinionCount > 0)
@@ -488,6 +507,12 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 			// This triggers regardless of cards in hand
 			if (Game.Player.CardsPlayedThisTurn.Count > 0)
 				Exclude(Rogue.Plagiarize);
+		}
+
+		public void HandleManaRemaining(int mana)
+		{
+			if(mana == 0 && FreeSpaceInHand)
+				Exclude(Rogue.DoubleCross);
 		}
 	}
 }

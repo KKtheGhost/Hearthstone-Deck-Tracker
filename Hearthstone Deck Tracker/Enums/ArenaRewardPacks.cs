@@ -69,5 +69,14 @@ namespace Hearthstone_Deck_Tracker.Enums
 
 		[LocDescription("Enum_ArenaRewardPacks_SunkenCity")]
 		SunkenCity = CardSet.THE_SUNKEN_CITY,
+
+		[LocDescription("Enum_ArenaRewardPacks_Nathria")]
+		Nathria = CardSet.REVENDRETH,
+
+		[LocDescription("Enum_ArenaRewardPacks_LichKing")]
+		LichKing = CardSet.RETURN_OF_THE_LICH_KING,
+
+		[LocDescription("Enum_ArenaRewardPacks_FestivalOfLegends")]
+		FestivalOfLegends = CardSet.BATTLE_OF_THE_BANDS,
 	}
 }

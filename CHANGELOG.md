@@ -1,3 +1,240 @@
+## **Release v1.20.1 - 2023-05-11**
+**Bob's Buddy**:
+- Fixed various issues related to cards and mechanics added with Hearthstone 26.2.0.
+
+## **Release v1.20.0 - 2023-05-10**
+**Updated for Hearthstone 26.2.0**
+
+**Bob's Buddy**:
+- There are likely still issues with some new cards in Bob's Buddy. We will update these in the coming days.
+- Interactions with Battlecries (Rylak Metalhead) are currently unsupported.
+- Interactions with unknown cards in the opponents hand (e.g. Bassgill or Scourfin) are currently unsupported.
+
+## **Release v1.19.24 - 2023-04-27**
+**Updated for Hearthstone 26.0.4**
+
+## **Release v1.19.23 - 2023-04-14**
+**Updated for Hearthstone 26.0.2**
+
+## **Release v1.19.22 - 2023-04-12**
+**Fixes**:
+- Fixed an issue where decks with Festival of Legends cards were marked as Wild.
+- Fixed an issue where ETC sideboard overlay was not showing correctly.
+
+## **Release v1.19.21 - 2023-04-11**
+**Updated for Year of the Wolf**
+
+**Changes**:
+- Added support for the majority of new cards.
+
+## **Release v1.19.20 - 2023-04-04**
+**Updated for Hearthstone 26.0.0**
+
+## **Release v1.19.19 - 2023-03-29**
+- Added support for E.T.C Band Manager in overlay.
+
+## **Release v1.19.17 - 2023-03-23**
+**Updated for Hearthstone 25.6.2**
+
+**Fixes**:
+- Fixed an issue where the expected damage range displayed by Bob's Buddy did not quite match the explanation in the tooltip.
+- Fixed an issue where Tribe-less supporting minions in Battlegrounds would be displayed when their Tribe was not available in the current lobby.
+
+## **Release v1.19.16 - 2023-03-14**
+**Updated for Hearthstone 25.6.0**
+
+## **Release v1.19.15 - 2023-03-02**
+**Updated for Hearthstone 25.4.3**
+
+## **Release v1.19.14 - 2023-02-15**
+**Bob's Buddy**:
+- Fixed an issue where Teron Gorefiends Hero Power was not working correctly.
+
+## **Release v1.19.13 - 2023-02-14**
+**Updated for Hearthstone 25.4.0**
+
+## **Release v1.19.12 - 2023-01-26**
+**Updated for Hearthstone 25.2.2**
+
+## **Release v1.19.11 - 2023-01-20**
+**Bob's Buddy**:
+- Fixed various issues related to cards and mechanics added with Hearthstone 25.2.0.
+
+## **Release v1.19.10 - 2023-01-19**
+**Bob's Buddy**:
+- Fixed an issue where dual-type minions were not working correctly.
+- Fixed an issue where Rot Hide Gnoll was not working correctly.
+
+**Fixes**:
+- Fixed an issue where the 5th banned Tribe was not appearing in the Session Recap panel.
+
+## **Release v1.19.9 - 2023-01-18**
+**Bob's Buddy**:
+- Added support for Putricide's Creations.
+- Fixed various issues related to Hearthstone 25.2.0.
+
+## **Release v1.19.8 - 2023-01-17**
+**Updated for Hearthstone 25.2.0**
+
+**Notes**:
+- There are likely still issues with some new cards in Bob's Buddy. We will update these in the coming days.
+
+## **Release v1.19.7 - 2022-12-19**
+**Updated for Hearthstone 25.0.4**
+
+## **Release v1.19.6 - 2022-12-13**
+**Changes**:
+- Added a setting to show/hide menu Overlays while Hearthstone is in the background. Defaults to hidden.
+- Added a setting to disable the Tier7 overlay functionality entirely.
+- Added a setting to disable the Tier7 MMR and "Go to my stats" panel.
+
+## **Release v1.19.5 - 2022-12-07**
+**Fixes**:
+- Fix an issue where cards consumed by the players Souleater's Scythe were revealed before the mulligan.
+- Fix an issue where cards consumed by the opponents Souleater's Scythe were revealed at all.
+
+## **Release v1.19.4 - 2022-12-06**
+**Changes**:
+- Added an option to disable the Battlegrounds Quest Reward Composition stats.
+
+**Fixes**:
+- Fix an issue where the Tier7 Pre-Game overlay could cover parts of the in-game Shop, Season Rewards, Friendslist and Quest UIs.
+
+## **Release v1.19.2 - 2022-12-05**
+**New**:
+- Added Battlegrounds Hero and Quest Reward stats to the Overlay!
+
+## **Release v1.19.1 - 2022-12-02**
+**Added support for March of the Lich King**
+
+## **Release v1.19.0 - 2022-11-29**
+**Fixes**:
+- Restored general functionality for Hearthstone 25.0.0.
+
+## **Release v1.18.27 - 2022-11-22**
+**Updated how Khadgar interacts with Evil Twin in Bob's Buddy**
+
+## **Release v1.18.26 - 2022-11-10**
+**Updated for Hearthstone 24.6.2**
+
+**Fixes**:
+- Fixed various Bob's Buddy simulation issues related to Hearthstone 24.6.0.
+
+## **Release v1.18.25 - 2022-11-03**
+**Fixes**:
+- Fixed an issue in Bob's Buddy where Volatile Venom was not working correctly.
+- Fixed an issue where Venomstrike Trap and Frozen Clone were not showing up in the secret tracker.
+
+## **Release v1.18.24 - 2022-11-01**
+**Updated for Hearthstone 24.6.0**
+
+## **Release v1.18.23 - 2022-10-13**
+**Updated for Hearthstone 24.4.3**
+
+## **Release v1.18.22 - 2022-09-29**
+**Added support for Dual and Neutral classes on Duels stats machups table**
+**Added support for Maw and Disorder secrets**
+**Fixed an issue where secrets were excluded from the list when Tight-Lipped Witness was in play**
+**Fixed several issues in Bob's Buddy related to Hearthstone 24.4.0**
+
+## **Release v1.18.21 - 2022-09-27**
+**Updated for Hearthstone 24.4.0**
+
+## **Release v1.18.20 - 2022-09-09**
+**Updated for Hearthstone 24.2.2**
+
+## **Release v1.18.19 - 2022-09-06**
+**Fixes**:
+- Fixed various more Bob's Buddy simulation issues related to Hearthstone 24.2.0.
+
+## **Release v1.18.18 - 2022-09-01**
+**Fixes**:
+- Fixed various more Bob's Buddy simulation issues related to Hearthstone 24.2.0.
+
+## **Release v1.18.17 - 2022-08-31**
+**Fixes**:
+- Fixed various Bob's Buddy simulation issues related to Hearthstone 24.2.0.
+- Fixed an issue where the opponents Battlegrounds Hero was not correctly appearing in the Twitch Extension.
+- Fixed an issue where multiple Battlegrounds Quests were not correctly appearing in the Twitch Extension.
+
+## **Release v1.18.16 - 2022-08-30**
+**Fixes**:
+- Fixed an issue in Bob's Buddy where Quest Rewards would sometimes incorrectly be considered active.
+- Fixed an issue where Quest Rewards were not appearing in the Twitch Extension.
+
+## **Release v1.18.14 - 2022-08-30**
+**Updated for Hearthstone 24.2.0**
+
+**Fixes**:
+- Fixed an issue where it was revealed that the opponent was playing Renathal during mulligan. 
+
+**Notes**:
+- There are likely still issues with some new cards in Bob's Buddy. We will update these in the coming days.
+- Tooltips for vaious Battlegrounds cards may still be missing but should start appearing soon.
+- The experience progress bar has been disabled until we are able to update it for this patch.
+
+
+## **Release v1.18.13 - 2022-08-16**
+**Updated for Hearthstone 24.0.3**
+
+**Fixes**:
+- Fixed an issue where Secrets countered by Blademaster Okami were not handled correctly.
+
+## **Release v1.18.12 - 2022-08-03**
+**Fixes**:
+- Fixed an issue where Location cards were not working correctly with the Twitch Extension.
+- Fixed an issue where the chosen cards of Suspicious Alchemist/Usher/Pirate was revealed.
+
+## **Release v1.18.10 - 2022-08-01**
+**Added support for Murder at Castle Nathria**
+
+## **Release v1.18.9 - 2022-07-26**
+**Updated for Hearthstone 24.0.0**
+
+## **Release v1.18.8 - 2022-07-12**
+**Fixes**:
+- Fixed an issue where Battlegrounds Session Recap was not respecting some settings
+
+## **Release v1.18.6 - 2022-06-27**
+**Updated for Hearthstone 23.6.0**
+
+## **Release v1.18.5 - 2022-06-16**
+**Updated for Hearthstone 23.4.3**
+
+**New**:
+- Added a Battlegrounds Session Recap overlay & window, showing Banned Minions, MMR changes, and Recent Games.
+- Added a counter for Abyssal Curse
+
+**Fixes**:
+- Fixed an issue where Mirror Entity was displayed in Standard games.
+- Fixed an issue where information about cards discarded by Immolation was unintentionally revealed.
+
+## **Release v1.18.4 - 2022-06-01**
+**Fixes**:
+- Fixed an issue where the Ozumat Hero Power was not working correctly.
+
+## **Release v1.18.3 - 2022-06-01**
+**Updated for Hearthstone 23.4.0**
+
+**New**:
+- Hovering an opponent in Battlegrounds will now display their Tavern-Up and Triple history.
+
+## **Release v1.18.2 - 2022-05-19**
+**Updated for Hearthstone 23.2.2**
+
+**Fixes**:
+- Fixed an issue where cards added to the top or bottom of the deck by From the Depths were not tracked correctly.
+
+## **Release v1.18.1 - 2022-05-10**
+**Fixes**:
+- Fixed a remaining issue from the 23.2.0 patch where players were not correctly detected, leading e.g. to missing game results.
+
+## **Release v1.18.0 - 2022-05-10**
+**Updated for Hearthstone 23.2.0**
+
+**Fixes**:
+- Fixed an issue where Questline parts were counting towards the spell counter.
+
 ## **Release v1.17.14 - 2022-05-03**
 **Fixes**:
 - Fixed an issue where the dredge card panels were missing in some cases.

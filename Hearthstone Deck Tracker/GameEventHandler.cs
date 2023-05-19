@@ -26,8 +26,10 @@ using HSReplay.LogValidation;
 using static Hearthstone_Deck_Tracker.Enums.GameMode;
 using static HearthDb.Enums.GameTag;
 using Hearthstone_Deck_Tracker.BobsBuddy;
-using Hearthstone_Deck_Tracker.LogReader.Interfaces;
-using Hearthstone_Deck_Tracker.Enums.Hearthstone;
+using Hearthstone_Deck_Tracker.Utility.Battlegrounds;
+using ControlzEx.Standard;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Enums;
+
 
 #endregion
 
@@ -115,9 +117,14 @@ namespace Hearthstone_Deck_Tracker
 				ArenaStats.Instance.UpdateArenaStatsHighlights();
 			}
 
+			if(_game.CurrentGameStats != null && _game.CurrentGameStats.GameMode == Battlegrounds)
+			{
+				Core.Game.BattlegroundsSessionViewModel.Update();
+			}
+
 			if(!_game.IsUsingPremade)
 				_game.DrawnLastGame =
-					new List<Card>(_game.Player.RevealedEntities.Where(x => !x.Info.Created && !x.Info.Stolen && x.Card.Collectible 
+					new List<Card>(_game.Player.RevealedEntities.Where(x => !x.Info.Created && !x.Info.Stolen && x.Card.Collectible
 									&& x.IsPlayableCard).GroupBy(x => x.CardId).Select(x =>
 					{
 						var card = Database.GetCardFromId(x.Key);
@@ -176,7 +183,7 @@ namespace Hearthstone_Deck_Tracker
 				var validationResult = LogValidator.Validate(log);
 				if(validationResult.IsValid)
 					await LogUploader.Upload(log, (GameMetaData)_game.MetaData.Clone(), gs);
-				else 
+				else
 				{
 					Log.Error("Invalid log: " + validationResult.Reason);
 					Influx.OnEndOfGameUploadError(validationResult.Reason);
@@ -362,27 +369,36 @@ namespace Hearthstone_Deck_Tracker
 
 		public void SetOpponentHero(string? cardId)
 		{
-			var hero = Database.GetHeroNameFromId(cardId);
-			if(string.IsNullOrEmpty(hero))
+			var heroName = Database.GetHeroNameFromId(cardId);
+			if(string.IsNullOrEmpty(heroName))
 				return;
-			_game.Opponent.Class = hero!;
+			_game.Opponent.Class = heroName;
 			if(_game.CurrentGameStats != null)
 			{
-				_game.CurrentGameStats.OpponentHero = hero;
+				_game.CurrentGameStats.OpponentHero = heroName;
 				_game.CurrentGameStats.OpponentHeroCardId = cardId;
+				var hero = Database.GetCardFromId(cardId);
+				if (hero != null)
+					_game.CurrentGameStats.OpponentHeroClasses = hero.GetClasses().ToArray();
 			}
-			Log.Info("Opponent=" + hero);
+			Log.Info("Opponent=" + heroName);
 		}
 
 		public void SetPlayerHero(string? cardId)
 		{
-			var hero = Database.GetHeroNameFromId(cardId);
-			if(string.IsNullOrEmpty(hero))
+			var heroName = Database.GetHeroNameFromId(cardId);
+			if(string.IsNullOrEmpty(heroName))
 				return;
-			_game.Player.Class = hero!;
+			_game.Player.Class = heroName;
 			if(_game.CurrentGameStats != null)
-				_game.CurrentGameStats.PlayerHero = hero!;
-			Log.Info("Player=" + hero);
+			{
+				_game.CurrentGameStats.PlayerHero = heroName;
+				_game.CurrentGameStats.PlayerHeroCardId = cardId;
+				var hero = Database.GetCardFromId(cardId);
+				if (hero != null)
+					_game.CurrentGameStats.PlayerHeroClasses = hero.GetClasses().ToArray();
+			}
+			Log.Info("Player=" + heroName);
 		}
 
 		private readonly Queue<Tuple<ActivePlayer, int>> _turnQueue = new Queue<Tuple<ActivePlayer, int>>();
@@ -498,7 +514,10 @@ namespace Hearthstone_Deck_Tracker
 			Core.Overlay.LinkOpponentDeckDisplay.IsFriendlyMatch = _game.IsFriendlyMatch;
 
 			if(_game.IsBattlegroundsMatch && _game.CurrentGameMode == GameMode.Spectator)
+			{
 				Core.Overlay.ShowBgsTopBar();
+				Core.Overlay.ShowBattlegroundsSession(true);
+			}
 			if(_game.IsFriendlyMatch)
 				if(!Config.Instance.InteractedWithLinkOpponentDeck)
 					Core.Overlay.ShowLinkOpponentDeckDisplay();
@@ -759,14 +778,47 @@ namespace Hearthstone_Deck_Tracker
 
 				await SaveReplays(_game.CurrentGameStats);
 
+				if(_game.IsConstructedMatch || _game.CurrentGameMode is GameMode.Arena or GameMode.Duels)
+					HSReplayNetClientAnalytics.OnConstructedMatchEnds(
+						_game.CurrentGameStats,
+						_game.CurrentGameMode,
+						_game.CurrentGameType,
+						_game.Spectator
+					);
+
 				if(_game.IsBattlegroundsMatch)
 				{
 					if(LogContainsStateComplete)
 						Sentry.SendQueuedBobsBuddyEvents(_game.CurrentGameStats.HsReplay.UploadId);
 					else
 						Sentry.ClearBobsBuddyEvents();
+					RecordBattlegroundsGame();
+					Tier7Trial.Clear();
+					Core.Game.BattlegroundsSessionViewModel.OnGameEnd();
+					Core.Windows.BattlegroundsSessionWindow.OnGameEnd();
+					Core.Overlay.BattlegroundsHeroPickingViewModel.Reset();
+					Core.Overlay.BattlegroundsQuestPickingViewModel.Reset();
+					var hero = _game.Entities.Values.FirstOrDefault(x => x.IsPlayer && x.IsHero);
+					var finalPlacement = hero?.GetTag(GameTag.PLAYER_LEADERBOARD_PLACE) ?? 0;
+					HSReplayNetClientAnalytics.OnBattlegroundsMatchEnds(
+						hero?.CardId,
+						finalPlacement,
+						_game.CurrentGameStats,
+						_game.Metrics,
+						_game.CurrentGameType,
+						_game.Spectator
+					);
+					
 				}
-						
+
+				if(_game.IsMercenariesMatch)
+					HSReplayNetClientAnalytics.OnMercenariesMatchEnds(
+						_game.CurrentGameStats,
+						_game.Metrics,
+						_game.CurrentGameType,
+						_game.Spectator
+					);
+
 				Influx.SendQueuedMetrics();
 			}
 			catch(Exception ex)
@@ -782,6 +834,43 @@ namespace Hearthstone_Deck_Tracker
 			var timeout = TimeSpan.FromSeconds(timeoutInSeconds);
 			while(_lastGame != null && _lastGame.GameMode == None && (DateTime.Now - startTime) < timeout)
 				await Task.Delay(100);
+		}
+
+		private void RecordBattlegroundsGame()
+		{
+			if (Core.Game.Spectator)
+				return;
+
+			var hero = _game.Entities.Values.FirstOrDefault(x => x.IsPlayer && x.IsHero);
+			var startTime = _game.CurrentGameStats?.StartTime.ToString("o");
+			var endTime = _game.CurrentGameStats?.EndTime.ToString("o");
+			var heroCardId = hero?.CardId != null ? BattlegroundsUtils.GetOriginalHeroId(hero.CardId) : null;
+			var rating = _game.CurrentGameStats?.BattlegroundsRating;
+			var ratingAfter = _game.CurrentGameStats?.BattlegroundsRatingAfter;
+			var placement = hero?.GetTag(GameTag.PLAYER_LEADERBOARD_PLACE);
+			var finalBoard = _game.Entities.Values
+				.Where(x => x.IsMinion && x.IsInZone(HearthDb.Enums.Zone.PLAY) && x.IsControlledBy(_game.Player.Id))
+				.Select(x => x.Clone())
+				.ToArray();
+			var friendlyGame = Core.Game.CurrentGameType == GameType.GT_BATTLEGROUNDS_FRIENDLY;
+
+			if(startTime != null && endTime != null && heroCardId != null && rating != null && ratingAfter != null && placement != null)
+			{
+				BattlegroundsLastGames.Instance.AddGame(
+					startTime,
+					endTime,
+					heroCardId,
+					(int)rating,
+					(int)ratingAfter,
+					(int)placement,
+					finalBoard,
+					friendlyGame
+				);
+			}
+			else
+			{
+				Log.Error("Missing data while trying to record battleground game");
+			}
 		}
 
 		private void LogEvent(string type, string id = "", int turn = 0, int from = -1, [CallerMemberName] string memberName = "", [CallerFilePath] string sourceFilePath = "")
@@ -925,7 +1014,10 @@ namespace Hearthstone_Deck_Tracker
 		public void HandlePlayerMulliganDone()
 		{
 			if(_game.IsBattlegroundsMatch)
+			{
 				Core.Overlay.HideBattlegroundsHeroPanel();
+				Core.Overlay.BattlegroundsHeroPickingViewModel.Reset();
+			}
 			else if(_game.IsConstructedMatch)
 				Core.Overlay.HideMulliganPanel(false);
 		}
@@ -990,24 +1082,32 @@ namespace Hearthstone_Deck_Tracker
 						break;
 					}
 
-					var heroIds = heroes.Select(x => x.Card.DbfId).ToArray();
+					var heroIds = heroes.OrderBy(x => x.ZonePosition).Select(x => x.Card.DbfId).ToArray();
 
 					// Wait for the game to fade in
 					await Task.Delay(3000);
 
 					if(Config.Instance.HideOverlay)
 					{
-						ToastManager.ShowBattlegroundsToast(heroIds);
+						var mmr = Core.Game.BattlegroundsRatingInfo?.Rating;
+						ToastManager.ShowBattlegroundsToast(heroIds, mmr);
 						Core.Overlay.ShowBgsTopBar();
 					}
 					else
+					{
+						Core.Overlay.ShowBattlegroundsHeroPickingStats(heroIds);
 						Core.Overlay.ShowBattlegroundsHeroPanel(heroIds);
+						Core.Overlay.BattlegroundsQuestPickingViewModel.Reset();
+						if(Tier7Trial.RemainingTrials.HasValue)
+							Core.Game.Metrics.Tier7TrialsRemaining = Math.Max(0, Tier7Trial.RemainingTrials.Value - 1);
+					}
 					break;
 				}
 			}
 			else
 				Core.Overlay.ShowBgsTopBar();
 			OpponentDeadForTracker.ResetOpponentDeadForTracker();
+			Core.Overlay.ShowBattlegroundsSession(true);
 		}
 
 		#region Player
@@ -1118,7 +1218,7 @@ namespace Hearthstone_Deck_Tracker
 						break;
 
 				}
-			}				
+			}
 		}
 
 		public void HandlePlayerHandDiscard(Entity entity, string cardId, int turn)
@@ -1182,6 +1282,34 @@ namespace Hearthstone_Deck_Tracker
 			{
 				Core.Overlay.UpdateMercenariesOverlay();
 			}
+		}
+
+		public void HandleBattlegroundsPlayerTechLevel(int id, int value)
+		{
+			if(_game.IsBattlegroundsMatch)
+			{
+				_game.UpdateBattlegroundsPlayerTechLevel(id, value);
+			}
+		}
+
+		public void HandleBattlegroundsPlayerTriples(int id, int value)
+		{
+			if(_game.IsBattlegroundsMatch)
+			{
+				_game.UpdateBattlegroundsPlayerTriples(id, value);
+			}
+		}
+
+		public void HandleBattlegroundsPlayerQuestPicked(Entity entity)
+		{
+			if(_game.IsBattlegroundsMatch)
+				Core.Overlay.BattlegroundsQuestPickingViewModel.Reset();
+		}
+
+		public void HandleBattlegroundsPlayerQuestPickerRemoval(Entity entity)
+		{
+			if(_game.IsBattlegroundsMatch)
+				Core.Overlay.BattlegroundsQuestPickingViewModel.Reset();
 		}
 
 		#endregion
@@ -1467,7 +1595,7 @@ namespace Hearthstone_Deck_Tracker
 
 		public void HandleOpponentHandToDeck(Entity entity, string? cardId, int turn)
 		{
-			if(!string.IsNullOrEmpty(cardId) && entity.HasTag(GameTag.TRADEABLE)) 
+			if(!string.IsNullOrEmpty(cardId) && entity.HasTag(GameTag.TRADEABLE))
 				_game.Opponent.PredictUniqueCardInDeck(cardId!, false);
 			_game.Opponent.HandToDeck(entity, turn);
 			Core.UpdateOpponentCards();
@@ -1483,6 +1611,15 @@ namespace Hearthstone_Deck_Tracker
 			var card = Database.GetCardFromId(cardId);
 			if(card != null)
 				GameEvents.OnOpponentPlayToDeck.Execute(card);
+		}
+
+		public void HandleOpponentSecretRemove(Entity entity, string? cardId, int turn)
+		{
+			if(!entity.IsSecret)
+				return;
+			_game.Opponent.RemoveFromPlay(entity, turn);
+			_game.SecretsManager.RemoveSecret(entity);
+			Core.UpdateOpponentCards();
 		}
 
 		public void HandleOpponentSecretTrigger(Entity entity, string? cardId, int turn, int otherId)
@@ -1525,7 +1662,18 @@ namespace Hearthstone_Deck_Tracker
 				card.Info.CostReduction += value;
 		}
 
+		void HandlePlayerAbyssalCurse(int value) => _game.Player.UpdateAbyssalCurse(value);
+		void HandleOpponentAbyssalCurse(int value) => _game.Opponent.UpdateAbyssalCurse(value);
+
 		#endregion
+
+		public void HandleQuestRewardDatabaseId(int id, int value)
+		{
+			if(_game.IsBattlegroundsMatch && _game.Entities.TryGetValue(id, out var entity))
+			{
+				Core.Overlay.BattlegroundsQuestPickingViewModel.OnBattlegroundsQuest(entity).Forget();
+			}
+		}
 
 		#region IGameHandlerImplementation
 
@@ -1568,6 +1716,8 @@ namespace Hearthstone_Deck_Tracker
 		void IGameHandler.HandleMercenariesStateChange() => HandleMercenariesStateChange();
 		void IGameHandler.HandlePlayerDredge() => HandlePlayerDredge();
 		void IGameHandler.HandlePlayerUnknownCardAddedToDeck() => HandlePlayerUnknownCardAddedToDeck();
+		void IGameHandler.HandlePlayerAbyssalCurse(int value) => HandlePlayerAbyssalCurse(value);
+		void IGameHandler.HandleOpponentAbyssalCurse(int value) => HandleOpponentAbyssalCurse(value);
 
 		#endregion IGameHandlerImplementation
 	}

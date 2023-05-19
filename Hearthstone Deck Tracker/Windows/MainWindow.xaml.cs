@@ -29,6 +29,8 @@ using Hearthstone_Deck_Tracker.Utility.Extensions;
 using Hearthstone_Deck_Tracker.Utility.Logging;
 using Hearthstone_Deck_Tracker.Utility.RemoteData;
 using Hearthstone_Deck_Tracker.Utility.Updating;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Actions;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Enums;
 using Hearthstone_Deck_Tracker.Windows.MainWindowControls;
 #if(SQUIRREL)
 	using Squirrel;
@@ -62,6 +64,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 			if(selected == null)
 				return;
 			ListViewDeck.ItemsSource = selected.GetSelectedDeckVersion().Cards;
+			PlayerSideboards.Update(selected.GetSelectedDeckVersion().Sideboards, true);
 			Helper.SortCardCollection(ListViewDeck.Items, Config.Instance.CardSortingClassFirst);
 		}
 
@@ -106,7 +109,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 				Log.Error(ex);
 			}
 		}
-
+		
 		private void ComboBoxDeckVersion_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
 		{
 			if(!_initialized || DeckPickerList.ChangedSelection)
@@ -233,7 +236,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 				OnPropertyChanged(nameof(CollectionSyncingBannerRemovable));
 			};
 
-			HSReplayNetHelper.CollectionUploaded += () =>
+			HSReplayNetHelper.CollectionUploaded += (_, _) =>
 			{
 				OnPropertyChanged(nameof(CollectionSyncingBannerRemovable)); 
 			};
@@ -443,7 +446,10 @@ namespace Hearthstone_Deck_Tracker.Windows
 				if(matches)
 					Core.StatsOverview.TreeViewItemArenaRunsOverview.IsSelected = true;
 				else
+				{
 					Core.StatsOverview.TreeViewItemArenaRunsSummary.IsSelected = true;
+					HSReplayNetClientAnalytics.OnShowPersonalStats(ClickAction.Action.StatsArena, SubFranchise.Arena);
+				}
 				Core.StatsOverview.ContentControlFilter.Content = Core.StatsOverview.ArenaFilters;
 			}
 			else
@@ -451,7 +457,10 @@ namespace Hearthstone_Deck_Tracker.Windows
 				if(matches)
 					Core.StatsOverview.TreeViewItemConstructedGames.IsSelected = true;
 				else
+				{
 					Core.StatsOverview.TreeViewItemConstructedSummary.IsSelected = true;
+					HSReplayNetClientAnalytics.OnShowPersonalStats(ClickAction.Action.StatsConstructed, null);
+				}
 				Core.StatsOverview.ContentControlFilter.Content = Core.StatsOverview.ConstructedFilters;
 			}
 			Core.StatsOverview.UpdateStats();
@@ -720,6 +729,13 @@ namespace Hearthstone_Deck_Tracker.Windows
 				return !synced && (Remote.Config.Data?.CollectionBanner?.RemovablePreSync ?? false)
 					|| synced && (Remote.Config.Data?.CollectionBanner?.RemovablePostSync ?? false);
 			}
+		}
+		public void SetNewUserOnboarding(bool visible)
+		{
+			if(visible)
+				NewUserOnboardingOverlay.Show();
+			else 
+				NewUserOnboardingOverlay.Hide();
 		}
 	}
 }

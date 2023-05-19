@@ -21,11 +21,17 @@ using System.Linq;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Utility.Analytics;
 using Hearthstone_Deck_Tracker.Utility.Extensions;
-using Hearthstone_Deck_Tracker.Controls.Overlay;
 using System.Windows.Controls;
+using Hearthstone_Deck_Tracker.Controls.Overlay;
 using Hearthstone_Deck_Tracker.Controls.Overlay.Mercenaries;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
 using Hearthstone_Deck_Tracker.Utility.RemoteData;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.HeroPicking;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.QuestPicking;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.Tier7;
+using Hearthstone_Deck_Tracker.Utility.Animations;
+using Hearthstone_Deck_Tracker.HsReplay;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.Session;
 
 #endregion
 
@@ -61,6 +67,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 		private bool _opponentCardsHidden;
 		private bool _playerCardsHidden;
 		private bool _resizeElement;
+		private bool _battlegroundsSessionVisibleTemp;
 		private bool _secretsTempVisible;
 		private UIElement? _selectedUiElement;
 		private bool _uiMovable;
@@ -73,11 +80,17 @@ namespace Hearthstone_Deck_Tracker.Windows
 		private OverlayElementBehavior _experienceCounterBehavior;
 		private OverlayElementBehavior _mercenariesTaskListBehavior;
 		private OverlayElementBehavior _mercenariesTaskListButtonBehavior;
+		private OverlayElementBehavior _tier7PreLobbyBehavior;
 
 		private const int LevelResetDelay = 500;
 		private const int ExperienceFadeDelay = 6000;
 
+		public BattlegroundsSessionViewModel BattlegroundsSessionViewModelVM => Core.Game.BattlegroundsSessionViewModel;
+		public BattlegroundsHeroPickingViewModel BattlegroundsHeroPickingViewModel { get; } = new();
+		public BattlegroundsQuestPickingViewModel BattlegroundsQuestPickingViewModel { get; } = new();
+
 		public MercenariesTaskListViewModel MercenariesTaskListVM { get; } = new MercenariesTaskListViewModel();
+		public Tier7PreLobbyViewModel Tier7ViewModel { get; } = new Tier7PreLobbyViewModel();
 
 		public List<BoardMinionOverlayViewModel> OppBoard { get; } = new List<BoardMinionOverlayViewModel>(MaxBoardSize);
 		public List<BoardMinionOverlayViewModel> PlayerBoard { get; } = new List<BoardMinionOverlayViewModel>(MaxBoardSize);
@@ -179,9 +192,9 @@ namespace Hearthstone_Deck_Tracker.Windows
 				ExitAnimation = AnimationType.Slide,
 			};
 
-			_bgsPastOpponentBoardBehavior = new OverlayElementBehavior(PastOpponentBoardDisplay)
+			_bgsPastOpponentBoardBehavior = new OverlayElementBehavior(BgsOpponentInfoContainer)
 			{
-				GetLeft = () => Width / 2 - PastOpponentBoardDisplay.ActualWidth * AutoScaling / 2,
+				GetLeft = () => Width / 2 - BgsOpponentInfoContainer.ActualWidth * AutoScaling / 2,
 				GetTop = () => 0,
 				GetScaling = () => AutoScaling,
 				AnchorSide = Side.Top,
@@ -217,6 +230,19 @@ namespace Hearthstone_Deck_Tracker.Windows
 				ExitAnimation = AnimationType.Slide,
 			};
 
+			_tier7PreLobbyBehavior = new OverlayElementBehavior(Tier7PreLobby)
+			{
+				GetLeft = () => Helper.GetScaledXPos(0.079, (int)Width, ScreenRatio),
+				GetTop = () => Height * 0.103,
+				GetScaling = () => Height / 1080,
+				AnchorSide = Side.Top,
+				EntranceAnimation = AnimationType.Slide,
+				ExitAnimation = AnimationType.Slide,
+				Fade = true,
+				Distance = 50,
+				HideCallback = () => Tier7ViewModel.Reset(),
+			};
+
 			if(Config.Instance.ExtraFeatures && Config.Instance.ForceMouseHook)
 				HookMouse();
 			ShowInTaskbar = Config.Instance.ShowInTaskbar;
@@ -249,7 +275,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 		public double PlayerStackHeight => (Config.Instance.PlayerDeckHeight / 100 * Height) / (Config.Instance.OverlayPlayerScaling / 100);
 		public double PlayerListHeight => PlayerStackHeight - PlayerLabelsHeight;
 		public double PlayerLabelsHeight => CanvasPlayerChance.ActualHeight + CanvasPlayerCount.ActualHeight
-			+ LblPlayerFatigue.ActualHeight + LblDeckTitle.ActualHeight + LblWins.ActualHeight + ChancePanelsMargins + PlayerTopDeckLens.ActualHeight + PlayerBottomDeckLens.ActualHeight;
+			+ LblPlayerFatigue.ActualHeight + LblDeckTitle.ActualHeight + LblWins.ActualHeight + ChancePanelsMargins + PlayerTopDeckLens.ActualHeight + PlayerBottomDeckLens.ActualHeight + PlayerSideboards.ActualHeight;
 
 		public VerticalAlignment PlayerStackPanelAlignment
 			=> Config.Instance.OverlayCenterPlayerStackPanel ? VerticalAlignment.Center : VerticalAlignment.Top;
@@ -414,6 +440,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 		internal void ShowBattlegroundsHeroPanel(int[] heroIds)
 		{
 			HeroNotificationPanel.HeroIds = heroIds;
+			HeroNotificationPanel.MMR = _game.BattlegroundsRatingInfo?.Rating;
 			_heroNotificationBehavior.Show();
 		}
 
@@ -439,6 +466,34 @@ namespace Hearthstone_Deck_Tracker.Windows
 			HideBobsBuddyPanel();
 		}
 
+		internal async void ShowBattlegroundsSession(bool show, bool force = false)
+		{
+			if(await Debounce.WasCalledAgain(50))
+				return;
+			if(show)
+			{
+				if(!force)
+					await Task.Delay(500);
+				BattlegroundsSessionViewModelVM.Update();
+				if (BattlegroundsSessionStackPanel.Visibility == Visible || !Config.Instance.ShowSessionRecap)
+					return;
+
+				Core.Game.BattlegroundsSessionViewModel.UpdateSectionsVisibilities();
+				FadeAnimation.SetVisibility(BattlegroundsSessionStackPanel, Visible);
+			}
+			else
+			{
+				if (_battlegroundsSessionVisibleTemp && force)
+					return;
+				FadeAnimation.SetVisibility(BattlegroundsSessionStackPanel, Hidden);
+			}
+		}
+
+		internal void ShowBattlegroundsHeroPickingStats(int[] heroIds)
+		{
+			BattlegroundsHeroPickingViewModel.SetHeroes(heroIds);
+		}
+
 		internal void ShowLinkOpponentDeckDisplay()
 		{
 			LinkOpponentDeckDisplay.Show(true);
@@ -461,15 +516,16 @@ namespace Hearthstone_Deck_Tracker.Windows
 
 		internal void ShowExperienceCounter()
 		{
-			//_experienceCounterBehavior.Show();
-			if(Config.Instance.ShowExperienceCounter)
-				ExperienceCounter.Visibility = Visible;
+			// Disabled for the time being with patch 24.2
+			//if(Config.Instance.ShowExperienceCounter)
+				//ExperienceCounter.Visibility = Visible;
 		}
 
 		internal void HideExperienceCounter()
 		{
-			if(!AnimatingXPBar)
-				ExperienceCounter.Visibility = Collapsed;
+			// Disabled for the time being with patch 24.2
+			//if(!AnimatingXPBar)
+				//ExperienceCounter.Visibility = Collapsed;
 		}
 		internal void ShowMercenariesTasksButton()
 		{
@@ -486,12 +542,39 @@ namespace Hearthstone_Deck_Tracker.Windows
 		{
 			ShowMercenariesTasksButton();
 			if(MercenariesTaskListVM.Update())
+			{
 				_mercenariesTaskListBehavior.Show();
+				if(_game.IsMercenariesMatch)
+					_game.Metrics.IncrementMercenariesTaskHoverDuringMatch();
+			}
 		}
 
 		private void HideMercenariesTasks()
 		{
 			_mercenariesTaskListBehavior.Hide();
+		}
+
+		internal async void ShowTier7PreLobby(bool show, bool checkAccountStatus, int delay = 500)
+		{
+			if(await Debounce.WasCalledAgain(50))
+				return;
+			if(show)
+			{
+				if(!Config.Instance.EnableBattlegroundsTier7Overlay)
+					return;
+				Tier7ViewModel.Update(checkAccountStatus).Forget();	
+				if(Config.Instance.ShowBattlegroundsTier7PreLobby || !(HSReplayNetOAuth.AccountData?.IsTier7 ?? false))
+				{
+					Tier7ViewModel.Update(checkAccountStatus).Forget();	
+
+					// Wait for lobby to be actually loaded
+					await Task.Delay(delay);
+
+					_tier7PreLobbyBehavior.Show();
+				}
+			}
+			else
+				_tier7PreLobbyBehavior.Hide();
 		}
 
 		public static bool AnimatingXPBar = false;
@@ -547,7 +630,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 		}
 
 		private long _update ;
-		internal async void UpdateMercenariesOverlay() 
+		internal async void UpdateMercenariesOverlay()
 		{
 			// Debounce
 			var ts = DateTime.Now.Ticks;

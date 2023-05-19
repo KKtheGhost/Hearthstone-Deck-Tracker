@@ -11,8 +11,8 @@
     <NeutralLanguage>en</NeutralLanguage>
     <Description>Hearthstone Deck Tracker</Description>
     <Copyright>Copyright © HearthSim 2022</Copyright>
-    <AssemblyVersion>1.17.14</AssemblyVersion>
-    <FileVersion>1.17.14</FileVersion>
+    <AssemblyVersion>1.20.1</AssemblyVersion>
+    <FileVersion>1.20.1</FileVersion>
     <UseWPF>true</UseWPF>
     <PlatformTarget>x86</PlatformTarget>
     <Platforms>x86</Platforms>
@@ -154,6 +154,16 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Strings.resx</DependentUpon>
     </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Page Update="Controls\Overlay\Battlegrounds\HeroPicking\BattlegroundsSingleHeroStats.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Update="Controls\Overlay\Battlegrounds\HeroPicking\BattlegroundsHeroPicking.xaml">
+      <XamlRuntime>$(DefaultXamlRuntime)</XamlRuntime>
+    </Page>
   </ItemGroup>
 
   <Target Name="CopyImages" BeforeTargets="PreBuildEvent">

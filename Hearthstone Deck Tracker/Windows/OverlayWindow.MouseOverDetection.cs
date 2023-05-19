@@ -11,13 +11,14 @@ using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.API;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
 using Rectangle = System.Windows.Shapes.Rectangle;
-using Hearthstone_Deck_Tracker.Controls;
 using Hearthstone_Deck_Tracker.Utility;
 using System.Threading.Tasks;
 using Hearthstone_Deck_Tracker.Hearthstone;
 using Hearthstone_Deck_Tracker.Controls.Overlay;
 using Hearthstone_Deck_Tracker.Utility.Logging;
 using System.Windows.Input;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.HeroPicking;
 
 #endregion
 
@@ -209,6 +210,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 						elements[i].ShowQuestionmark = abilityData!.Entity == null && abilityData.HasTiers;
 					}
 				}
+				_game.Metrics.IncrementMercenariesHoversOpponentMercToShowAbility();
 			}
 			else
 				ClearMercHover();
@@ -254,7 +256,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 			foreach(var m in PlayerBoard)
 				m.AbilitiesVisibility = Visibility.Visible;
 		}
- 
+
 		private void DetectMouseOver(List<Entity> playerBoard, List<Entity> oppBoard)
 		{
 			if(!_game.IsMercenariesMatch && (playerBoard.Count == 0 && oppBoard.Count == 0 && _game.Player.HandCount == 0 || IsGameOver))
@@ -363,7 +365,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 			var cursorPos = GetCursorPos();
 			if(cursorPos.X == -1 && cursorPos.Y == -1)
 				return;
-			var showMinions = false;
+			var shouldShowOpponentInfo = false;
 			var fadeBgsMinionsList = false;
 			_mouseIsOverLeaderboardIcon = false;
 			var turn = _game.GetTurnNumber();
@@ -384,45 +386,29 @@ namespace Hearthstone_Deck_Tracker.Windows
 					{
 						if(turn == 1 && i != 0)
 						{
-							BattlegroundsBoard.Children.Clear();
-							NotFoughtOpponent.Visibility = Visibility.Visible;
-							HeroNoMinionsOnBoard.Visibility = Visibility.Collapsed;
-							showMinions = true;
+							BgsOpponentInfo.ShowNotFoughtOpponent();
+							shouldShowOpponentInfo = true;
 						}
 						break;
 					}
-					showMinions = true;
 					var state = _game.GetBattlegroundsBoardStateFor(entity.CardId);
-					BattlegroundsBoard.Children.Clear();
-					NotFoughtOpponent.Visibility = Visibility.Collapsed;
-					HeroNoMinionsOnBoard.Visibility = Visibility.Collapsed;
-					if(state == null)
-					{
-						BattlegroundsAge.Text = "";
-						if(entity.CardId != _game.Player.Board.FirstOrDefault(x => x.IsHero).CardId)
-							NotFoughtOpponent.Visibility = Visibility.Visible;
-						else
-							showMinions = false;
-						break;
-					}
-					foreach(var e in state.Entities)
-						BattlegroundsBoard.Children.Add(new BattlegroundsMinion(e));
-					if(!state.Entities.Any())
-						HeroNoMinionsOnBoard.Visibility = Visibility.Visible;
-					var age = _game.GetTurnNumber() - state.Turn;
-					BattlegroundsAge.Text = string.Format(LocUtil.Get("Overlay_Battlegrounds_Turns"), age);
+					shouldShowOpponentInfo = !(state == null && entity.CardId == Core.Game.Player.Board.FirstOrDefault(x => x.IsHero)?.CardId);
+					BgsOpponentInfo.Update(entity, state, turn);
 					break;
 				}
 			}
-			if(showMinions)
+			if(shouldShowOpponentInfo)
 			{
+				BgsOpponentInfo.Visibility = Visibility.Visible;
+				BgsOpponentInfo.UpdateLayout();
 				_bgsBobsBuddyBehavior.Hide();
 				_bgsPastOpponentBoardBehavior.Show();
 			}
 			else
 			{
+				BgsOpponentInfo.Visibility = Visibility.Collapsed;
 				_bgsPastOpponentBoardBehavior.Hide();
-				BattlegroundsBoard.Children.Clear();
+				BgsOpponentInfo.ClearLastKnownBoard();
 				ShowBobsBuddyPanelDelayed();
 			}
 			// Only fade the minions, if we're out of mulligan
@@ -473,14 +459,14 @@ namespace Hearthstone_Deck_Tracker.Windows
 				return maxHandWidth / count;
 			return cardWidth;
 		}
-		
+
 		private FrameworkElement? _currentlyHoveredElement;
 		private void UpdateInteractiveElements()
 		{
 			var cursorPos = GetCursorPos();
 			if(cursorPos.X == -1 && cursorPos.Y == -1)
 				return;
-			
+
 			var clickableHoveredIndex = _clickableElements.FindIndex(e => ElementContains(e, cursorPos));
 			SetClickthrough(clickableHoveredIndex < 0);
 		}
@@ -589,8 +575,14 @@ namespace Hearthstone_Deck_Tracker.Windows
 		private ScaleTransform? GetScaleTransform(FrameworkElement element)
 		{
 			// Only BgTierIcons are marked as clickable but a wrapper is scaled by the OverlayElementBehavior
-			if(element == BattlegroundsMinionsPanel.BgTierIcons)
+			if(element == BattlegroundsMinionsPanel.BgTierIcons || element == BattlegroundsMinionsPanel.MinionScrollViewer)
 				return BgsTopBar.RenderTransform as ScaleTransform;
+			if(element == BattlegroundsSession.BattlegroundsSessionPanelTopGroup || element is BattlegroundsGameView)
+				return BattlegroundsSession.RenderTransform as ScaleTransform;
+
+			// Todo: This is not great!
+			if(Helper.GetVisualParent<BattlegroundsHeroPicking>(element) != null || Helper.GetVisualParent<BattlegroundsQuestPicking>(element) != null)
+				return BattlegroundsHeroPicking.LayoutTransform as ScaleTransform;
 
 			return element.RenderTransform as ScaleTransform;
 		}

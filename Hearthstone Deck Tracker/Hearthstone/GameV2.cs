@@ -6,6 +6,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using HearthDb.Enums;
 using HearthMirror.Objects;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.HeroPicking;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.QuestPicking;
+using Hearthstone_Deck_Tracker.Controls.Overlay.Battlegrounds.Session;
 using Hearthstone_Deck_Tracker.Enums;
 using Hearthstone_Deck_Tracker.Enums.Hearthstone;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
@@ -14,6 +17,7 @@ using Hearthstone_Deck_Tracker.HsReplay;
 using Hearthstone_Deck_Tracker.Live;
 using Hearthstone_Deck_Tracker.Stats;
 using Hearthstone_Deck_Tracker.Utility.Logging;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Utility;
 using HSReplay;
 using HSReplay.OAuth.Data;
 
@@ -23,7 +27,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 {
 	public class GameV2 : IGame
 	{
-		public readonly List<long> IgnoredArenaDecks = new List<long>();
+		public readonly List<long> IgnoredArenaDecks = new();
 		private GameMode _currentGameMode = GameMode.None;
 		private bool? _spectator;
 		private MatchInfo? _matchInfo;
@@ -32,7 +36,12 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 		private BattlegroundRatingInfo? _battlegroundsRatingInfo;
 		private MercenariesRatingInfo? _mercenariesRatingInfo;
 		private BattlegroundsBoardState? _battlegroundsBoardState;
+		private Dictionary<int, Dictionary<int, int>> _battlegroundsHeroLatestTavernUpTurn;
+		private Dictionary<int, Dictionary<int, int>> _battlegroundsHeroTriplesByTier;
+		internal QueueEvents QueueEvents { get; }
 
+		public BattlegroundsSessionViewModel BattlegroundsSessionViewModel { get; } = new();
+		public GameMetrics Metrics { get; private set; } = new();
 		public GameV2()
 		{
 			Player = new Player(this, true);
@@ -40,6 +49,9 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 			IsInMenu = true;
 			SecretsManager = new SecretsManager(this, new RemoteArenaSettings());
 			_battlegroundsBoardState = new BattlegroundsBoardState(this);
+			_battlegroundsHeroLatestTavernUpTurn = new Dictionary<int, Dictionary<int, int>>();
+			_battlegroundsHeroTriplesByTier = new Dictionary<int, Dictionary<int, int>>();
+			QueueEvents = new(this);
 			Reset();
 			LiveDataManager.OnStreamingChecked += async streaming =>
 			{
@@ -69,16 +81,15 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 		public List<string> PowerLog { get; } = new List<string>();
 		public Deck? IgnoreIncorrectDeck { get; set; }
 		public GameTime GameTime { get; } = new GameTime();
-		public bool IsMinionInPlay => Entities.FirstOrDefault(x => (x.Value.IsInPlay && x.Value.IsMinion)).Value != null;
-
-		public bool IsOpponentMinionInPlay
-			=> Entities.FirstOrDefault(x => (x.Value.IsInPlay && x.Value.IsMinion && x.Value.IsControlledBy(Opponent.Id))).Value != null;
-
-		public int OpponentMinionCount => Entities.Count(x => (x.Value.IsInPlay && x.Value.IsMinion && x.Value.IsControlledBy(Opponent.Id)));
-		public int PlayerMinionCount => Entities.Count(x => (x.Value.IsInPlay && x.Value.IsMinion && x.Value.IsControlledBy(Player.Id)));
-		public int OpponentHandCount => Entities.Count(x => x.Value.IsInHand && x.Value.IsControlledBy(Opponent.Id));
-		public int OpponentSecretCount => Entities.Count(x => x.Value.IsInSecret && x.Value.IsSecret && x.Value.IsControlledBy(Opponent.Id));
-		public int PlayerHandCount => Entities.Count(x => x.Value.IsInHand && x.Value.IsControlledBy(Player.Id));
+		public bool IsMinionInPlay => Entities.Values.FirstOrDefault(x => x.IsInPlay && x.IsMinion) != null;
+		public bool IsOpponentMinionInPlay => Entities.Values.FirstOrDefault(x => x.IsInPlay && x.IsMinion && x.IsControlledBy(Opponent.Id)) != null;
+		public int OpponentMinionCount => Entities.Values.Count(x => x.IsInPlay && x.IsMinion && x.IsControlledBy(Opponent.Id));
+		public int OpponentBoardCount => Entities.Values.Count(x => x.IsInPlay && x.IsMinionOrLocation && x.IsControlledBy(Opponent.Id));
+		public int PlayerMinionCount => Entities.Values.Count(x => x.IsInPlay && x.IsMinion && x.IsControlledBy(Player.Id));
+		public int PlayerBoardCount => Entities.Values.Count(x => x.IsInPlay && x.IsMinionOrLocation && x.IsControlledBy(Player.Id));
+		public int OpponentHandCount => Entities.Values.Count(x => x.IsInHand && x.IsControlledBy(Opponent.Id));
+		public int OpponentSecretCount => Entities.Values.Count(x => x.IsInSecret && x.IsSecret && x.IsControlledBy(Opponent.Id));
+		public int PlayerHandCount => Entities.Values.Count(x => x.IsInHand && x.IsControlledBy(Player.Id));
 
 		public Player Player { get; set; }
 		public Player Opponent { get; set; }
@@ -280,6 +291,9 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 				CurrentGameStats = new GameStats(GameResult.None, "", "") {PlayerName = "", OpponentName = "", Region = CurrentRegion};
 			PowerLog.Clear();
 			_battlegroundsBoardState?.Reset();
+			_battlegroundsHeroLatestTavernUpTurn = new Dictionary<int, Dictionary<int, int>>();
+			_battlegroundsHeroTriplesByTier = new Dictionary<int, Dictionary<int, int>>();
+			Metrics = new GameMetrics();
 
 			if(Core._game != null && Core.Overlay != null)
 			{
@@ -330,5 +344,35 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 		public void SnapshotBattlegroundsBoardState() => _battlegroundsBoardState?.SnapshotCurrentBoard();
 
 		public BoardSnapshot? GetBattlegroundsBoardStateFor(string? cardId) => _battlegroundsBoardState?.GetSnapshot(cardId);
-	}	
+
+		public void UpdateBattlegroundsPlayerTechLevel(int id, int value)
+		{
+			if(!_battlegroundsHeroLatestTavernUpTurn.ContainsKey(id))
+				_battlegroundsHeroLatestTavernUpTurn[id] = new Dictionary<int, int>();
+			if (value > 1)
+				_battlegroundsHeroLatestTavernUpTurn[id][value] = GetTurnNumber();
+		}
+
+		public Dictionary<int, int>? GetBattlegroundsHeroLatestTavernUpTurn(int id)
+		{
+			return _battlegroundsHeroLatestTavernUpTurn.TryGetValue(id, out var data) ? data : null;
+		}
+
+		public void UpdateBattlegroundsPlayerTriples(int id, int value)
+		{
+			var heroCurrentTier = Entities[id].GetTag(GameTag.PLAYER_TECH_LEVEL);
+			if(!_battlegroundsHeroTriplesByTier.ContainsKey(id))
+				_battlegroundsHeroTriplesByTier[id] = new Dictionary<int, int>();
+
+			var previousTiersTriples = _battlegroundsHeroTriplesByTier[id].Where(s => s.Key < heroCurrentTier)
+				.Select(s => s.Value)
+				.Sum();
+			_battlegroundsHeroTriplesByTier[id][heroCurrentTier] = value - previousTiersTriples;
+		}
+
+		public Dictionary<int, int>? GetBattlegroundsHeroTriplesByTier(int id)
+		{
+			return _battlegroundsHeroTriplesByTier.TryGetValue(id, out var data) ? data : null;
+		}
+	}
 }

@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Xml.Serialization;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Annotations;
+using Hearthstone_Deck_Tracker.Enums;
 using Hearthstone_Deck_Tracker.Utility;
 using Hearthstone_Deck_Tracker.Utility.Logging;
 using Hearthstone_Deck_Tracker.Utility.Themes;
@@ -80,6 +81,9 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 
 		[XmlIgnore]
 		public int DeckListIndex;
+
+		[XmlIgnore]
+		public SpellSchool SpellSchool => (SpellSchool?) _dbCard?.SpellSchool ?? SpellSchool.NONE;
 
 		public Card()
 		{
@@ -236,6 +240,10 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 
 		public int TechLevel => _dbCard?.Entity.GetTag(GameTag.TECH_LEVEL) ?? 0;
 
+		public int BattlegroundsSkinParentId => _dbCard?.Entity.GetTag(GameTag.BACON_SKIN_PARENT_ID) ?? 0;
+
+		public int BattlegroundsArmorTier => _dbCard?.BattlegroundArmorTier ?? 0;
+
 		public Race? RaceEnum => _dbCard?.Race;
 
 		public int LettuceCooldown => _dbCard?.Entity.GetTag(GameTag.LETTUCE_COOLDOWN_CONFIG) ?? 0;
@@ -378,6 +386,30 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 				.Any(x => string.Equals(x.ToString(), playerClass, StringComparison.CurrentCultureIgnoreCase));
 		}
 
+		public List<string> GetClasses()
+		{
+			List<string> classes = new List<string>();
+
+			var multipleClasses = _dbCard?.Entity.GetTag(GameTag.MULTIPLE_CLASSES) ?? 0;
+			if (multipleClasses == 0u)
+			{
+				classes.Add(GetPlayerClass);
+				return classes;
+			}
+
+			int cardClass = 1;
+			while (multipleClasses != 0u)
+			{
+				if (1u == (multipleClasses & 1u))
+				{
+					var className = HearthDbConverter.ConvertClass((CardClass)cardClass);
+					classes.Add(className ?? "Neutral");
+				}
+				multipleClasses >>= 1;
+				cardClass++;
+			}
+			return classes;
+		}
 		public SolidColorBrush ColorPlayer
 		{
 			get

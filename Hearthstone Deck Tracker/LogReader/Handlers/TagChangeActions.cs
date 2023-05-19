@@ -78,8 +78,28 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 				case FAKE_ZONE:
 				case FAKE_ZONE_POSITION:
 					return () => gameState.GameHandler?.HandleMercenariesStateChange();
+				case PLAYER_TECH_LEVEL:
+					return () => gameState.GameHandler?.HandleBattlegroundsPlayerTechLevel(id, value);
+				case PLAYER_TRIPLES:
+					return () => gameState.GameHandler?.HandleBattlegroundsPlayerTriples(id, value);
+                case IMMOLATESTAGE:
+                    return () => OnImmolateStateChange(id, value, game);
+				case RESOURCES_USED:
+					return () => OnResourcesUsedChange(id, value, game);
+				case QUEST_REWARD_DATABASE_ID:
+					return () => gameState.GameHandler?.HandleQuestRewardDatabaseId(id, value);
 			}
 			return null;
+		}
+
+		private void OnResourcesUsedChange(int id, int value, IGame game)
+		{
+			if(game.PlayerEntity == null)
+				return;
+			if(id != game.PlayerEntity.Id)
+				return;
+			var available = game.PlayerEntity.GetTag(RESOURCES) + game.PlayerEntity.GetTag(TEMP_RESOURCES);
+			game.SecretsManager.HandleManaRemaining(Math.Max(0, available - value));
 		}
 
 		private void OnRebornChange(int id, int value, IGame game)
@@ -121,6 +141,13 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 			if(entity.IsControlledBy(game.Opponent.Id))
 				return;
 
+			if(entity.GetTag(CREATOR_DBID) == Hearthstone.CardIds.SuspiciousMysteryDbfId)
+			{
+				// Card was created by Suspicious Alchemist/Usher/Pirate
+				return;
+			}
+
+
 			if(string.IsNullOrEmpty(targetEntity.CardId))
 			{
 				targetEntity.CardId = entity.Info.LatestCardId;
@@ -154,7 +181,7 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 				return;
 
 			var source = entity.GetTag(CREATOR);
-			if(source == 0 || !game.Entities.TryGetValue(source, out var sourceEntity) || !sourceEntity.HasTag(DREDGE))
+			if(source == 0 || !game.Entities.TryGetValue(source, out var sourceEntity) || !sourceEntity.HasDredge())
 				return;
 
 			if(gameState.CurrentBlock == null)
@@ -294,7 +321,7 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 		}
 
 		private void ProposedDefenderChange(IGame game, int value) => game.ProposedDefender = value;
-	
+
 		private void ProposedAttackerChange(IHsGameState gameState, int id, IGame game, int value) {
 			game.ProposedAttacker = value;
 			if(value <= 0)
@@ -449,6 +476,14 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 					ZoneChangeFromSecret(gameState, id, game, value, prevValue, controller, entity.Info.LatestCardId);
 					break;
 				case Zone.INVALID:
+					if(!game.SetupDone && (Zone)value == GRAVEYARD)
+					{
+						// Souleater's Scythe causes entites to be created in the graveyard.
+						// We need to not reveal this card for the opponent and only reveal
+						// it for the player after mulligan.
+						entity.Info.InGraveardAtStartOfGame = true;
+					}
+
 					var maxId = GetMaxHeroPowerId(game);
 					if(!game.SetupDone && (id <= maxId || game.GameEntity?.GetTag(STEP) == (int)Step.INVALID && entity.GetTag(ZONE_POSITION) < 5))
 					{
@@ -470,7 +505,7 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 		}
 
 		// The last heropower is created after the last hero, therefore +1
-		private int GetMaxHeroPowerId(IGame game) => 
+		private int GetMaxHeroPowerId(IGame game) =>
 			Math.Max(game.PlayerEntity?.GetTag(HERO_ENTITY) ?? 66, game.OpponentEntity?.GetTag(HERO_ENTITY) ?? 66) + 1;
 
 		private void SimulateZoneChangesFromDeck(IHsGameState gameState, int id, IGame game, int value, string? cardId, int maxId)
@@ -542,6 +577,8 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 						gameState.GameHandler?.HandlePlayerSecretPlayed(entity, cardId, gameState.GetTurnNumber(), (Zone)prevValue, currentBlockCardId);
 					else if(controller == game.Opponent.Id)
 						gameState.GameHandler?.HandleOpponentSecretPlayed(entity, cardId, -1, gameState.GetTurnNumber(), (Zone)prevValue, id);
+					if(entity.IsBattlegroundsQuest)
+						gameState.GameHandler?.HandleBattlegroundsPlayerQuestPicked(entity);
 					break;
 				case SETASIDE:
 					if(controller == game.Player.Id)
@@ -552,6 +589,16 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 						if(gameState.CurrentBlock?.CardId == Collectible.Neutral.GrandArchivist
 							&& gameState.CurrentBlock.EntityDiscardedByArchivist != null)
 							gameState.CurrentBlock.EntityDiscardedByArchivist.CardId = entity.Info.LatestCardId;
+					}
+					break;
+				case REMOVEDFROMGAME:
+					if(controller == game.Player.Id)
+					{
+						if(entity.CardId == NonCollectible.Neutral.DiscoverQuestRewardDnt)
+						{
+							Log.Debug("Quest Picker Removal");
+							gameState.GameHandler?.HandleBattlegroundsPlayerQuestPickerRemoval(entity);
+						}
 					}
 					break;
 				default:
@@ -571,6 +618,14 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 						if(!game.Entities.TryGetValue(id, out var entity))
 							return;
 						gameState.GameHandler?.HandleOpponentSecretTrigger(entity, cardId, gameState.GetTurnNumber(), id);
+					}
+					break;
+				case Zone.SETASIDE:
+					if(controller == game.Opponent.Id)
+					{
+						if(!game.Entities.TryGetValue(id, out var entity))
+							return;
+						gameState.GameHandler?.HandleOpponentSecretRemove(entity, cardId, gameState.GetTurnNumber());
 					}
 					break;
 				default:
@@ -752,7 +807,7 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 							entity.SetTag(GameTag.ZONE, (int)Zone.DECK);
 						}
 					}
-					
+
 					if(controller == game.Player.Id && cardId != null)
 						gameState.GameHandler?.HandlePlayerDeckDiscard(entity, cardId, gameState.GetTurnNumber());
 					else if(controller == game.Opponent.Id)
@@ -814,6 +869,12 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 		{
 			if(game.Entities.TryGetValue(id, out var entity))
 				game.SecretsManager.OnEntityRevealedAsMinion(entity);
+		}
+
+		private void OnImmolateStateChange(int id, int value, IGame game)
+		{
+			if(value == 4 && game.Entities.TryGetValue(id, out var entity) && entity.CardId != NonCollectible.Neutral.TheCoinCore)
+				entity.ClearCardId();
 		}
 	}
 }

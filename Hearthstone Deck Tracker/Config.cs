@@ -380,8 +380,11 @@ namespace Hearthstone_Deck_Tracker
 		[DefaultValue(true)]
 		public bool HideDrawChances = true;
 
-		[DefaultValue(false)]
-		public bool HideInBackground = false;
+		[DefaultValue(true)]
+		public bool HideInBackground = true;
+
+		[DefaultValue(true)]
+		public bool HideMenuOverlayInBackground = true;
 
 		[DefaultValue(true)]
 		public bool HideInMenu = true;
@@ -406,6 +409,9 @@ namespace Hearthstone_Deck_Tracker
 
 		[DefaultValue(DisplayMode.Auto)]
 		public DisplayMode OpponentLibramCounter = DisplayMode.Auto;
+
+		[DefaultValue(DisplayMode.Auto)]
+		public DisplayMode OpponentAbyssalCurseCounter = DisplayMode.Auto;
 
 		[DefaultValue(false)]
 		public bool HideOpponentCardAge = false;
@@ -455,6 +461,9 @@ namespace Hearthstone_Deck_Tracker
 		[DefaultValue(DisplayMode.Auto)]
 		public DisplayMode PlayerLibramCounter = DisplayMode.Auto;
 
+		[DefaultValue(DisplayMode.Auto)]
+		public DisplayMode PlayerAbyssalCurseCounter = DisplayMode.Auto;
+
 		[DefaultValue(false)]
 		public bool HidePlayerCards = false;
 
@@ -463,6 +472,9 @@ namespace Hearthstone_Deck_Tracker
 
 		[DefaultValue(false)]
 		public bool HidePlayerCardsBottom = false;
+
+		[DefaultValue(false)]
+		public bool HidePlayerSideboards = false;
 
 		[DefaultValue(false)]
 		public bool HidePlayerFatigueCount = false;
@@ -481,6 +493,9 @@ namespace Hearthstone_Deck_Tracker
 
 		[DefaultValue(false)]
 		public bool EnableLinkOpponentDeckInNonFriendly = false;
+
+		[DefaultValue(true)]
+		public bool EnableBattlegroundsTier7Overlay = true;
 
 		[DefaultValue(true)]
 		public bool HighlightLastDrawn = true;
@@ -540,6 +555,9 @@ namespace Hearthstone_Deck_Tracker
 		[DefaultValue("")]
 		public string LastDeck = "";
 
+		[DefaultValue("")]
+		public string LastBattlegroundsGameDate = "";
+
 		[DefaultValue(Language.enUS)]
 		public Language Localization = Language.enUS;
 
@@ -572,6 +590,9 @@ namespace Hearthstone_Deck_Tracker
 
 		[DefaultValue(0)]
 		public int OffsetY = 0;
+
+		[DefaultValue(false)]
+		public bool OnboardingSeen = false;
 
 		[DefaultValue(72)]
 		public double OpponentDeckHeight = 72;
@@ -636,8 +657,8 @@ namespace Hearthstone_Deck_Tracker
 		[DefaultValue(new[] { DeckPanel.Winrate, DeckPanel.Cards, DeckPanel.CardCounter, DeckPanel.DrawChances, DeckPanel.Fatigue })]
 		public DeckPanel[] DeckPanelOrderOpponent = { DeckPanel.Winrate, DeckPanel.Cards, DeckPanel.CardCounter, DeckPanel.DrawChances, DeckPanel.Fatigue };
 
-		[DefaultValue(new[] { DeckPanel.DeckTitle, DeckPanel.Wins, DeckPanel.CardsTop, DeckPanel.Cards, DeckPanel.CardsBottom, DeckPanel.CardCounter, DeckPanel.DrawChances, DeckPanel.Fatigue })]
-		public DeckPanel[] DeckPanelOrderLocalPlayer = { DeckPanel.DeckTitle, DeckPanel.Wins, DeckPanel.CardsTop, DeckPanel.Cards, DeckPanel.CardsBottom, DeckPanel.CardCounter, DeckPanel.DrawChances, DeckPanel.Fatigue };
+		[DefaultValue(new[] { DeckPanel.DeckTitle, DeckPanel.Wins, DeckPanel.CardsTop, DeckPanel.Cards, DeckPanel.CardsBottom, DeckPanel.Sideboards, DeckPanel.CardCounter, DeckPanel.DrawChances, DeckPanel.Fatigue })]
+		public DeckPanel[] DeckPanelOrderLocalPlayer = { DeckPanel.DeckTitle, DeckPanel.Wins, DeckPanel.CardsTop, DeckPanel.Cards, DeckPanel.CardsBottom, DeckPanel.Sideboards, DeckPanel.CardCounter, DeckPanel.DrawChances, DeckPanel.Fatigue };
 
 		[DefaultValue(88)]
 		public double PlayerDeckHeight = 88;
@@ -789,6 +810,18 @@ namespace Hearthstone_Deck_Tracker
 		public bool ShowBatteryLifePercent = false;
 
 		[DefaultValue(true)]
+		public bool ShowBattlegroundsTier7PreLobby = true;
+
+		[DefaultValue(true)]
+		public bool ShowBattlegroundsHeroPicking = true;
+
+		[DefaultValue(true)]
+		public bool ShowBattlegroundsQuestPicking = true;
+
+		[DefaultValue(true)]
+		public bool ShowBattlegroundsQuestPickingComps = true;
+
+		[DefaultValue(true)]
 		public bool ShowBattlegroundsTiers = true;
 
 		[DefaultValue(true)]
@@ -811,6 +844,36 @@ namespace Hearthstone_Deck_Tracker
 
 		[DefaultValue(false)]
 		public bool SeenBobsBuddyAverageDamage = false;
+
+		[DefaultValue(15)]
+		public double SessionRecapTop = 15;
+
+		[DefaultValue(0)]
+		public double SessionRecapLeft = 0;
+
+		[DefaultValue(true)]
+		public bool ShowSessionRecap = true;
+
+		[DefaultValue(true)]
+		public bool ShowSessionRecapBetweenGames = true;
+
+		[DefaultValue(true)]
+		public bool ShowSessionRecapMinionsBanned = true;
+
+		[DefaultValue(true)]
+		public bool ShowSessionRecapStartCurrentMMR = true;
+
+		[DefaultValue(true)]
+		public bool ShowSessionRecapLatestGames = true;
+
+		[DefaultValue(false)]
+		public bool BattlegroundsSessionRecapWindowOnStart = false;
+
+		[DefaultValue(100)]
+		public double OverlaySessionRecapScaling = 100;
+
+		[DefaultValue(false)]
+		public bool Tier7OverlayCollapsed = false;
 
 		[DefaultValue(false)]
 		public bool SeenMulliganToast = false;
@@ -1160,7 +1223,7 @@ namespace Hearthstone_Deck_Tracker
 				}
 			}
 		}
-
+		
 		public static void Save() => XmlManager<Config>.Save(Instance.ConfigPath, Instance);
 
 		public static void SaveBackup(bool deleteOriginal = false)

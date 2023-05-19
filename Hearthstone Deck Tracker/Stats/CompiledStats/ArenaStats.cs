@@ -66,6 +66,11 @@ namespace Hearthstone_Deck_Tracker.Stats.CompiledStats
 
 		public int PacksCountSunkenCity => GetFilteredRuns().Sum(x => x.Packs.Count(p => p == ArenaRewardPacks.SunkenCity));
 
+		public int PacksCountNathria => GetFilteredRuns().Sum(x => x.Packs.Count(p => p == ArenaRewardPacks.Nathria));
+
+		public int PacksCountLichKing => GetFilteredRuns().Sum(x => x.Packs.Count(p => p == ArenaRewardPacks.LichKing));
+		public int PacksCountFestivalOfLegends => GetFilteredRuns().Sum(x => x.Packs.Count(p => p == ArenaRewardPacks.FestivalOfLegends));
+
 		public int PacksCountTotal => GetFilteredRuns().Sum(x => x.PackCount);
 
 		public double PacksCountAveragePerRun => Math.Round(GetFilteredRuns(requireAnyReward: true).Select(x => x.PackCount).DefaultIfEmpty(0).Average(), 2);
@@ -93,6 +98,7 @@ namespace Hearthstone_Deck_Tracker.Stats.CompiledStats
 		public ClassStats? ClassStatsMostPicked => !ClassStats.Any() ? null : ClassStats.OrderByDescending(x => x.Runs).First();
 		public ClassStats? ClassStatsLeastPicked => !ClassStats.Any() ? null : ClassStats.OrderBy(x => x.Runs).First();
 
+		public ClassStats? ClassStatsDeathknight => GetClassStats("Deathknight");
 		public ClassStats? ClassStatsDemonHunter => GetClassStats("DemonHunter");
 		public ClassStats? ClassStatsDruid => GetClassStats("Druid");
 		public ClassStats? ClassStatsHunter => GetClassStats("Hunter");
@@ -327,6 +333,8 @@ namespace Hearthstone_Deck_Tracker.Stats.CompiledStats
 		public void UpdateArenaStatsHighlights()
 		{
 			OnPropertyChanged(nameof(ClassStats));
+			OnPropertyChanged(nameof(ClassStatsDeathknight));
+			OnPropertyChanged(nameof(ClassStatsDemonHunter));
 			OnPropertyChanged(nameof(ClassStatsDruid));
 			OnPropertyChanged(nameof(ClassStatsHunter));
 			OnPropertyChanged(nameof(ClassStatsMage));

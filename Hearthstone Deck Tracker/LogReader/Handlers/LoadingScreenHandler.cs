@@ -44,7 +44,22 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 
 		public void Handle(LogLine logLine, IHsGameState gameState, IGame game)
 		{
-			var match = LogConstants.GameModeRegex.Match(logLine.Line);
+			var match = LogConstants.NextGameModeRegex.Match(logLine.Line);
+			if(match.Success)
+			{
+				var prev = GetMode(match.Groups["prev"].Value);
+				var next = GetMode(match.Groups["next"].Value);
+				if(prev == Mode.BACON)
+				{
+					if(next != Mode.GAMEPLAY)
+						Core.Overlay.ShowBattlegroundsSession(false, true);
+					Core.Overlay.ShowTier7PreLobby(false, false);
+					Watchers.BaconWatcher.Stop();
+				}
+				return;
+			}
+
+			match = LogConstants.GameModeRegex.Match(logLine.Line);
 			if(match.Success)
 			{
 				game.CurrentMode = GetMode(match.Groups["curr"].Value);
@@ -101,7 +116,21 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 					Core.Game.CacheBrawlInfo();
 
 				if(game.CurrentMode == Mode.BACON)
+				{
 					Core.Game.CacheBattlegroundRatingInfo();
+					Core.Game.BattlegroundsSessionViewModel.Update();
+					if (Config.Instance.ShowSessionRecapBetweenGames)
+						Core.Overlay.ShowBattlegroundsSession(true);
+					Core.Overlay.ShowTier7PreLobby(true, true);
+					Watchers.BaconWatcher.Run();
+				}
+				else
+				{
+					if(game.CurrentMode != Mode.GAMEPLAY)
+						Core.Overlay.ShowBattlegroundsSession(false, true);
+					Core.Overlay.ShowTier7PreLobby(false, false);
+					Watchers.BaconWatcher.Stop();
+				}
 
 				if(game.CurrentMode == Mode.LETTUCE_PLAY)
 					Core.Game.CacheMercenariesRatingInfo();
@@ -135,7 +164,12 @@ namespace Hearthstone_Deck_Tracker.LogReader.Handlers
 				if(game.PlayerChallengeable && Config.Instance.ChallengeAction != Enums.HsActionType.None)
 					Watchers.FriendlyChallengeWatcher.Run();
 				else
-					Watchers.FriendlyChallengeWatcher.Stop(); 
+					Watchers.FriendlyChallengeWatcher.Stop();
+
+				if(game.CurrentMode > Mode.LOGIN && game.CurrentMode != Mode.GAMEPLAY)
+					Watchers.QueueWatcher.Run();
+				else
+					Watchers.QueueWatcher.Stop();
 
 				API.GameEvents.OnModeChanged.Execute(game.CurrentMode);
 			}

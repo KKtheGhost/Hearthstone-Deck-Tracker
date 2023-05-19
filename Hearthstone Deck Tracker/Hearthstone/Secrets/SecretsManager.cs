@@ -6,7 +6,6 @@ using Hearthstone_Deck_Tracker.Enums;
 using Hearthstone_Deck_Tracker.Hearthstone.Entities;
 using Hearthstone_Deck_Tracker.Utility.Extensions;
 using Hearthstone_Deck_Tracker.Utility.Logging;
-using static Hearthstone_Deck_Tracker.Hearthstone.CardIds;
 
 namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 {
@@ -117,7 +116,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Secrets
 				.Select(x => x.Key)
 				.Distinct().ToList();
 
-			bool HasPlayedTwoOf(MultiIdCard card) => opponentEntities.Count(e => card == e.CardId && !e.Info.Created) >= 2;
+			bool HasPlayedTwoOf(MultiIdCard card) => opponentEntities.Count(e => card == e.CardId! && !e.Info.Created) >= 2;
 
 			int AdjustCount(MultiIdCard card, int count)
 				=> gameModeHasCardLimit && HasPlayedTwoOf(card) && !createdSecrets.Contains(card) ? 0 : count;

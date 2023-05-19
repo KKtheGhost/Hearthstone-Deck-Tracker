@@ -6,7 +6,9 @@ using System.Globalization;
 using System.Linq;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Enums;
+using Hearthstone_Deck_Tracker.Utility.Extensions;
 using static HearthDb.Enums.BnetGameType;
+
 
 #endregion
 
@@ -57,13 +59,18 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 			{1646, "Vanilla"},
 			{1578, "United in Stormwind"},
 			{1626, "Fractured in Alterac Valley"},
+			{1658, "Voyage to the Sunken City"},
+			{1691, "Murder at Castle Nathria" },
+			{1776, "March of the Lich King" },
+			{1869, "Path of Arthas" },
+			{(int)CardSet.BATTLE_OF_THE_BANDS, "Festival of Legends" },
 		};
 
 		public static string? ConvertClass(CardClass cardClass)
 		{
 			if(cardClass == CardClass.DEMONHUNTER)
 				return "DemonHunter";
-			return (int)cardClass < 2 || (int)cardClass > 10
+			return (int)cardClass < 1 || (int)cardClass > 10
 				  ? null : CultureInfo.InvariantCulture.TextInfo.ToTitleCase(cardClass.ToString().ToLowerInvariant());
 		}
 
@@ -239,10 +246,52 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 					Format = deck.GuessFormatType(),
 					ZodiacYear = (ZodiacYear)Enum.GetValues(typeof(ZodiacYear)).Cast<int>().OrderByDescending(x => x).First(),
 					HeroDbfId = card.DbfId,
-					CardDbfIds = deck.Cards.ToDictionary(c => c.DbfId, c => c.Count)
+					CardDbfIds = deck.Cards.ToDictionary(c => c.DbfId, c => c.Count),
+					Sideboards = deck.Sideboards.Select(s =>
+						new { owner = Database.GetCardFromId(s.OwnerCardId), sideboard = s.Cards.ToDictionary(c => c.DbfId, c => c.Count) }
+					).Where(s => s.owner != null).ToDictionary(s => s.owner!.DbfId, s => s.sideboard)
 				};
 			}
 			return null;
+		}
+
+		public static HearthDb.Deckstrings.Deck? ToHearthDbDeck(HearthMirror.Objects.Deck deck, FormatType format)
+		{
+			var heroCard = Database.GetCardFromId(deck.Hero);
+			if(heroCard == null)
+				return null;
+
+			var cards = deck.Cards.Select(x =>
+			{
+				var card = Database.GetCardFromId(x.Id);
+				if(card == null)
+					return null;
+				card.Count = x.Count;
+				return card;
+			}).WhereNotNull();
+
+			Dictionary<int, int> dbfIds;
+			Dictionary<int, Dictionary<int, int>> sideboards;
+			try
+			{
+				dbfIds = cards.ToDictionary(c => c.DbfId, c => c.Count);
+				sideboards = deck.Sideboards.Select(s =>
+					new { owner = Database.GetCardFromId(s.Key), sideboard = s.Value.ToDictionary(c => c.DbfId, c => c.Count) }
+				).Where(s => s.owner != null).ToDictionary(s => s.owner!.DbfId, s => s.sideboard);
+			}
+			catch
+			{
+				return null;
+			}
+
+			return new HearthDb.Deckstrings.Deck
+			{
+				Name = deck.Name,
+				Format = format,
+				HeroDbfId = heroCard.DbfId,
+				CardDbfIds = dbfIds,
+				Sideboards = sideboards,
+			};
 		}
 
 		public static Deck FromHearthDbDeck(HearthDb.Deckstrings.Deck hDbDeck)
@@ -254,6 +303,18 @@ namespace Hearthstone_Deck_Tracker.Hearthstone
 			};
 			foreach(var c in hDbDeck.GetCards())
 				deck.Cards.Add(new Card(c.Key) { Count = c.Value });
+			foreach(var s in hDbDeck.GetSideboards())
+				deck.Sideboards.Add(new Sideboard(
+					s.Key.Id,
+					s.Value.Select(c =>
+					{
+						var card = Database.GetCardFromId(c.Key.Id);
+						if(card == null)
+							return null;
+						card.Count = c.Value;
+						return card;
+					}).WhereNotNull().ToList()
+				));
 			return deck;
 		}
 	}

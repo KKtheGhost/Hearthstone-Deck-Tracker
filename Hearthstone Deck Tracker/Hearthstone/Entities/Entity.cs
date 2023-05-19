@@ -6,6 +6,8 @@ using System.Text;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Enums;
 using Newtonsoft.Json;
+using static HearthDb.CardIds.Collectible;
+using static HearthDb.Enums.GameTag;
 
 #endregion
 
@@ -45,6 +47,12 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 			return entity;
 		}
 
+		public void ClearCardId()
+		{
+			CardId = null;
+			Info.ClearCardId();
+		}
+
 		public EntityInfo Info { get; }
 		public Dictionary<GameTag, int> Tags { get; set; }
 		public string? Name { get; set; }
@@ -72,10 +80,16 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 		public bool IsOpponent => !IsPlayer && HasTag(GameTag.PLAYER_ID);
 
 		[JsonIgnore]
+		public bool IsMinionOrLocation => IsMinion || IsLocation;
+
+		[JsonIgnore]
 		public bool IsMinion => GetTag(GameTag.CARDTYPE) == (int)CardType.MINION;
 
 		[JsonIgnore]
-		public bool IsPlayableCard => IsMinion || IsSpell || IsWeapon || IsPlayableHero;
+		public bool IsLocation => GetTag(GameTag.CARDTYPE) == (int)CardType.LOCATION;
+
+		[JsonIgnore]
+		public bool IsPlayableCard => IsMinionOrLocation || IsSpell || IsWeapon || IsPlayableHero;
 
 		[JsonIgnore]
 		public bool IsWeapon => GetTag(GameTag.CARDTYPE) == (int)CardType.WEAPON;
@@ -108,6 +122,9 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 		public bool IsQuestlinePart => IsQuestline && GetTag(GameTag.QUESTLINE_PART) > 1;
 
 		[JsonIgnore]
+		public bool IsBattlegroundsQuest => HasTag(GameTag.QUEST_REWARD_DATABASE_ID);
+
+		[JsonIgnore]
 		public bool IsSideQuest => HasTag(GameTag.SIDEQUEST);
 
 		[JsonIgnore]
@@ -131,6 +148,8 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 		public bool IsSpell => GetTag(GameTag.CARDTYPE) == (int)CardType.SPELL;
 
 		public bool IsHeroPower => GetTag(GameTag.CARDTYPE) == (int)CardType.HERO_POWER;
+
+		public bool IsBgsQuestReward => GetTag(GameTag.CARDTYPE) == (int)CardType.BATTLEGROUND_QUEST_REWARD;
 
 		public bool IsCurrentPlayer => HasTag(GameTag.CURRENT_PLAYER);
 
@@ -170,6 +189,11 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 		public bool IsClass(CardClass cardClass) => GetTag(GameTag.CLASS) == (int)cardClass;
 
 		public bool HasTag(GameTag tag) => GetTag(tag) > 0;
+
+		public bool HasDredge()
+		{
+			return HasTag(DREDGE) || CardId == Warrior.FromTheDepths;
+		}
 
 		public int GetTag(GameTag tag) => Tags.TryGetValue(tag, out var value) ? value : 0;
 
@@ -256,6 +280,12 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 			OriginalCardId = Database.GetCardFromDbfId(dbfId)?.Id;
 		}
 
+		public void ClearCardId()
+		{
+			OriginalCardId = null;
+			LatestCardId = null;
+		}
+
 		public int GetCreatorId()
 		{
 			if(Hidden)
@@ -291,6 +321,7 @@ namespace Hearthstone_Deck_Tracker.Hearthstone.Entities
 		public GuessedCardState GuessedCardState { get; set; } = GuessedCardState.None;
 		public List<string> StoredCardIds { get; set; } = new List<string>();
 		public int DeckIndex { get; set; }
+		public bool InGraveardAtStartOfGame { get; set; }
 
 		public string? LatestCardId
 		{

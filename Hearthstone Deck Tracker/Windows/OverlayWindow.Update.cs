@@ -7,7 +7,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Hearthstone_Deck_Tracker.Enums;
 using Hearthstone_Deck_Tracker.Enums.Hearthstone;
-using Hearthstone_Deck_Tracker.LogReader.Handlers;
 using Hearthstone_Deck_Tracker.Utility;
 using Hearthstone_Deck_Tracker.Utility.BoardDamage;
 using Hearthstone_Deck_Tracker.Utility.Logging;
@@ -15,7 +14,6 @@ using static System.Windows.Visibility;
 using static HearthDb.Enums.GameTag;
 using static Hearthstone_Deck_Tracker.Controls.Overlay.WotogCounterStyle;
 using HearthDb.Enums;
-using Hearthstone_Deck_Tracker.Controls.Overlay.Mercenaries;
 
 namespace Hearthstone_Deck_Tracker.Windows
 {
@@ -46,6 +44,16 @@ namespace Hearthstone_Deck_Tracker.Windows
 			Log.Info("Could not set overlay as topmost");
 		}
 
+		public void OnHearthstoneFocused()
+		{
+			Update(true);
+
+			if(_game.CurrentMode == Mode.BACON)
+			{
+				Tier7ViewModel.RefreshAccountVisibility = Visibility.Visible;
+			}
+		}
+
 		public void Update(bool refresh)
 		{
 			if (refresh)
@@ -65,7 +73,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 						continue;
 					if(!Config.Instance.HideOpponentCardAge)
 						_cardMarks[i].UpdateCardAge(entity.Info.Turn);
-					else 
+					else
 						_cardMarks[i].UpdateCardAge(null);
 					if(!Config.Instance.HideOpponentCardMarks)
 					{
@@ -102,8 +110,8 @@ namespace Hearthstone_Deck_Tracker.Windows
 					_cardMarks[i].Visibility = Collapsed;
 			}
 
-			var oppBoard = Core.Game.Opponent.Board.Where(x => x.IsMinion).OrderBy(x => x.GetTag(ZONE_POSITION)).ToList();
-			var playerBoard = Core.Game.Player.Board.Where(x => x.IsMinion).OrderBy(x => x.GetTag(ZONE_POSITION)).ToList();
+			var oppBoard = Core.Game.Opponent.Board.Where(x => x.IsMinionOrLocation).OrderBy(x => x.GetTag(ZONE_POSITION)).ToList();
+			var playerBoard = Core.Game.Player.Board.Where(x => x.IsMinionOrLocation).OrderBy(x => x.GetTag(ZONE_POSITION)).ToList();
 			UpdateMouseOverDetectionRegions(oppBoard, playerBoard);
 			if(!_game.IsInMenu && (_game.IsMulliganDone || _game.IsBattlegroundsMatch || _game.IsMercenariesMatch) && User32.IsHearthstoneInForeground() && IsVisible)
 				DetectMouseOver(playerBoard, oppBoard);
@@ -117,18 +125,18 @@ namespace Hearthstone_Deck_Tracker.Windows
 			StackPanelSecrets.Opacity = Config.Instance.SecretsOpacity / 100;
 			Opacity = Config.Instance.OverlayOpacity / 100;
 
-			var inBattlegrounds = _game.IsBattlegroundsMatch;
+			var inBattlegrounds = _game.IsBattlegroundsMatch || Core.Game.CurrentMode == Mode.BACON;
 			var inMercenaries = _game.IsMercenariesMatch;
 			var hideDeck = Config.Instance.HideDecksInOverlay || inBattlegrounds || inMercenaries || (Config.Instance.HideInMenu && _game.IsInMenu);
 
 			if (!_playerCardsHidden)
 			{
-				StackPanelPlayer.Visibility =  hideDeck && !_uiMovable ? Collapsed : Visible;
+				StackPanelPlayer.Visibility = (hideDeck && !_uiMovable) || _battlegroundsSessionVisibleTemp || inBattlegrounds ? Collapsed : Visible;
 			}
 
 			if (!_opponentCardsHidden)
 			{
-				StackPanelOpponent.Visibility = hideDeck && !_uiMovable ? Collapsed : Visible;
+				StackPanelOpponent.Visibility = (hideDeck && !_uiMovable) || _battlegroundsSessionVisibleTemp || inBattlegrounds ? Collapsed : Visible;
 			}
 
 			CanvasPlayerChance.Visibility = Config.Instance.HideDrawChances ? Collapsed : Visible;
@@ -146,11 +154,12 @@ namespace Hearthstone_Deck_Tracker.Windows
 			ListViewPlayer.Visibility = Config.Instance.HidePlayerCards ? Collapsed : Visible;
 			PlayerTopDeckLens.Visibility = Config.Instance.HidePlayerCardsTop ? Collapsed : Visible;
 			PlayerBottomDeckLens.Visibility = Config.Instance.HidePlayerCardsBottom ? Collapsed : Visible;
+			PlayerSideboards.Visibility = Config.Instance.HidePlayerSideboards ? Collapsed : Visible;
 
 			var gameStarted = !_game.IsInMenu && _game.SetupDone && _game.Player.PlayerEntities.Any();
 			SetCardCount(_game.Player.HandCount, !gameStarted ? 30 : _game.Player.DeckCount);
 
-			SetOpponentCardCount(_game.Opponent.HandCount, !gameStarted ? 30 : _game.Opponent.DeckCount);
+			SetOpponentCardCount(_game.Opponent.HandCount, !gameStarted || !_game.IsMulliganDone ? 30 - _game.Opponent.HandCount : _game.Opponent.DeckCount);
 
 
 			LblWins.Visibility = Config.Instance.ShowDeckWins && _game.IsUsingPremade ? Visible : Collapsed;
@@ -170,6 +179,8 @@ namespace Hearthstone_Deck_Tracker.Windows
 			if(_game.IsInMenu || !inBattlegrounds)
 			{
 				HideBgsTopBar();
+				if (!Config.Instance.ShowSessionRecapBetweenGames)
+					ShowBattlegroundsSession(false);
 			}
 
 			UpdateIcons();
@@ -209,6 +220,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 			var showPlayerPogoHopperCounter = WotogCounterHelper.ShowPlayerPogoHopperCounter;
 			var showPlayerGalakrondCounter = WotogCounterHelper.ShowPlayerGalakrondCounter;
 			var showPlayerLibramCounter = WotogCounterHelper.ShowPlayerLibramCounter;
+			var showPlayerAbyssalCurseCounter = WotogCounterHelper.ShowPlayerAbyssalCurseCounter;
 			if(showPlayerCthunCounter)
 			{
 				var proxy = WotogCounterHelper.PlayerCthunProxy;
@@ -225,11 +237,14 @@ namespace Hearthstone_Deck_Tracker.Windows
 				WotogIconsPlayer.Galakrond = WotogCounterHelper.PlayerGalakrondInvokeCounter.ToString();
 			if(showPlayerLibramCounter)
 				WotogIconsPlayer.Libram = WotogCounterHelper.PlayerLibramCounter.ToString();
+			if(showPlayerAbyssalCurseCounter)
+				WotogIconsPlayer.AbyssalCurse = WotogCounterHelper.PlayerAbyssalCurseCounter.ToString();
 			WotogIconsPlayer.WotogCounterStyle = showPlayerCthunCounter && showPlayerSpellsCounter ? Full : (showPlayerCthunCounter ? Cthun : (showPlayerSpellsCounter ? Spells : None));
 			WotogIconsPlayer.JadeCounterStyle = showPlayerJadeCounter ? Full : None;
 			WotogIconsPlayer.PogoHopperCounterStyle = showPlayerPogoHopperCounter ? Full : None;
 			WotogIconsPlayer.GalakrondCounterStyle = showPlayerGalakrondCounter ? Full : None;
 			WotogIconsPlayer.LibramCounterStyle = showPlayerLibramCounter ? Full : None;
+			WotogIconsPlayer.AbyssalCounterStyle = showPlayerAbyssalCurseCounter ? Full : None;
 
 			var showOpponentCthunCounter = WotogCounterHelper.ShowOpponentCthunCounter;
 			var showOpponentSpellsCounter = WotogCounterHelper.ShowOpponentSpellsCounter;
@@ -237,6 +252,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 			var showOpponentPogoHopperCounter = WotogCounterHelper.ShowOpponentPogoHopperCounter;
 			var showOpponentGalakrondCounter = WotogCounterHelper.ShowOpponentGalakrondCounter;
 			var showOpponentLibramCounter = WotogCounterHelper.ShowOpponentLibramCounter;
+			var showOpponentAbyssalCurseCounter = WotogCounterHelper.ShowOpponentAbyssalCurseCounter;
 			if(showOpponentCthunCounter)
 			{
 				var proxy = WotogCounterHelper.OpponentCthunProxy;
@@ -253,26 +269,33 @@ namespace Hearthstone_Deck_Tracker.Windows
 				WotogIconsOpponent.Galakrond = WotogCounterHelper.OpponentGalakrondInvokeCounter.ToString();
 			if(showOpponentLibramCounter)
 				WotogIconsOpponent.Libram = WotogCounterHelper.OpponentLibramCounter.ToString();
+			if(showOpponentAbyssalCurseCounter)
+				WotogIconsOpponent.AbyssalCurse = WotogCounterHelper.OpponentAbyssalCurseCounter.ToString();
 			WotogIconsOpponent.WotogCounterStyle = showOpponentCthunCounter && showOpponentSpellsCounter ? Full : (showOpponentCthunCounter ? Cthun : (showOpponentSpellsCounter ? Spells : None));
 			WotogIconsOpponent.JadeCounterStyle = showOpponentJadeCounter ? Full : None;
 			WotogIconsOpponent.PogoHopperCounterStyle = showOpponentPogoHopperCounter ? Full : None;
 			WotogIconsOpponent.GalakrondCounterStyle = showOpponentGalakrondCounter ? Full : None;
 			WotogIconsOpponent.LibramCounterStyle = showOpponentLibramCounter ? Full : None;
+			WotogIconsOpponent.AbyssalCounterStyle = showOpponentAbyssalCurseCounter ? Full : None;
 		}
 
 		public void UpdatePosition()
 		{
-			//hide the overlay depenting on options
+			var isHearthstoneInForeground = User32.IsHearthstoneInForeground();
+			//hide the overlay depending on options
 			ShowOverlay(
-						!((Config.Instance.HideInBackground && !User32.IsHearthstoneInForeground())
-						  || (Config.Instance.HideOverlayInSpectator && _game.CurrentGameMode == GameMode.Spectator) || Config.Instance.HideOverlay
-						  || ForceHidden || Helper.GameWindowState == WindowState.Minimized));
+						!((Config.Instance.HideInBackground && !isHearthstoneInForeground && !_game.IsInMenu)
+						  || (Config.Instance.HideMenuOverlayInBackground && !isHearthstoneInForeground && _game.IsInMenu)
+						  || (Config.Instance.HideOverlayInSpectator && _game.CurrentGameMode == GameMode.Spectator)
+						  || Config.Instance.HideOverlay
+						  || ForceHidden
+						  || Helper.GameWindowState == WindowState.Minimized));
 
 
 			var hsRect = User32.GetHearthstoneRect(true);
 
-			//hs window has height 0 if it just launched, screwing things up if the tracker is started before hs is. 
-			//this prevents that from happening. 
+			//hs window has height 0 if it just launched, screwing things up if the tracker is started before hs is.
+			//this prevents that from happening.
 			if(hsRect.Height == 0 || (Visibility != Visible && Core.Windows.CapturableOverlay == null))
 				return;
 
@@ -343,6 +366,8 @@ namespace Hearthstone_Deck_Tracker.Windows
 			StackPanelSecrets.RenderTransform = new ScaleTransform(Config.Instance.SecretsPanelScaling, Config.Instance.SecretsPanelScaling);
 			LinkOpponentDeckDisplay.RenderTransform = new ScaleTransform(Config.Instance.OverlayOpponentScaling / 100,
 																	Config.Instance.OverlayOpponentScaling / 100);
+			BattlegroundsSession.RenderTransform = new ScaleTransform(Config.Instance.OverlaySessionRecapScaling / 100,
+																	Config.Instance.OverlaySessionRecapScaling / 100);
 		}
 
 		public double AutoScaling { get; set; } = 1;
@@ -383,6 +408,8 @@ namespace Hearthstone_Deck_Tracker.Windows
 			Canvas.SetLeft(IconBoardAttackPlayer, Helper.GetScaledXPos(Config.Instance.AttackIconPlayerHorizontalPosition / 100, (int)Width, ScreenRatio));
 			Canvas.SetTop(IconBoardAttackOpponent, Height * Config.Instance.AttackIconOpponentVerticalPosition / 100);
 			Canvas.SetLeft(IconBoardAttackOpponent, Helper.GetScaledXPos(Config.Instance.AttackIconOpponentHorizontalPosition / 100, (int)Width, ScreenRatio));
+			Canvas.SetTop(BattlegroundsSessionStackPanel, Height * Config.Instance.SessionRecapTop / 100);
+			Canvas.SetLeft(BattlegroundsSessionStackPanel, Width * Config.Instance.SessionRecapLeft / 100);
 			UpdateBoardPosition();
 
 			Canvas.SetLeft(LinkOpponentDeckDisplay, Width * Config.Instance.OpponentDeckLeft / 100);
@@ -426,7 +453,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 			OnPropertyChanged(nameof(OpponentListHeight));
 			OnPropertyChanged(nameof(BattlegroundsTileHeight));
 			OnPropertyChanged(nameof(BattlegroundsTileWidth));
-			
+
 			//Scale attack icons, with height
 			var atkWidth = (int)Math.Round(Height * 0.0695, 0);
 			var atkFont = (int)Math.Round(Height * 0.0204, 0);
@@ -455,11 +482,14 @@ namespace Hearthstone_Deck_Tracker.Windows
 				WotogIconsOpponent.RenderTransform = new ScaleTransform(wotogSize, wotogSize);
 				_wotogSize = wotogSize;
 			}
+
+			BattlegroundsMinionsPanel.MinionScrollViewer.MaxHeight = (ActualHeight * 0.89) / (_bgsTopBarBehavior.GetScaling?.Invoke() ?? 1.0);
 		}
 
 		public void ApplyAutoScaling()
 		{
-			AutoScaling = Math.Max(0.8, Math.Min(1.3, Height / 1080));
+			var scaling = Height / 1080;
+			AutoScaling = Math.Max(0.8, Math.Min(1.3, scaling));
 
 			_bgsTopBarBehavior.UpdatePosition();
 			_bgsTopBarBehavior.UpdateScaling();
@@ -481,6 +511,17 @@ namespace Hearthstone_Deck_Tracker.Windows
 
 			_mercenariesTaskListBehavior.UpdatePosition();
 			_mercenariesTaskListBehavior.UpdateScaling();
+
+			_tier7PreLobbyBehavior.UpdatePosition();
+			_tier7PreLobbyBehavior.UpdateScaling();
+
+			BattlegroundsHeroPickingViewModel.Scaling = scaling;
+			BattlegroundsHeroPicking.Width = Width / scaling;
+			BattlegroundsHeroPicking.Height = Height / scaling;
+
+			BattlegroundsQuestPickingViewModel.Scaling = scaling;
+			BattlegroundsQuestPicking.Width = Width / scaling;
+			BattlegroundsQuestPicking.Height = Height / scaling;
 		}
 
 		public void UpdateStackPanelAlignment()

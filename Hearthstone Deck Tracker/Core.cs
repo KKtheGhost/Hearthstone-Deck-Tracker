@@ -72,6 +72,7 @@ namespace Hearthstone_Deck_Tracker
 			LocalizeDictionary.Instance.Culture = CultureInfo.GetCultureInfo("en-US");
 			_startUpTime = DateTime.UtcNow;
 			ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
+			ServicePointManager.DefaultConnectionLimit = 10;
 			Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
 			Config.Load();
 			Log.Info($"HDT: {Helper.GetCurrentVersion()}, Operating System: {Helper.GetWindowsVersion()}, .NET Framework: {Helper.GetInstalledDotNetVersion()}");
@@ -103,6 +104,9 @@ namespace Hearthstone_Deck_Tracker
 			MainWindow.LoadConfigSettings();
 			MainWindow.Show();
 			splashScreenWindow.Close();
+
+			if(Config.Instance.GoogleAnalytics)
+				HSReplayNetClientAnalytics.Initialize();
 
 			if(Config.Instance.DisplayHsReplayNoteLive && ConfigManager.PreviousVersion != null && ConfigManager.PreviousVersion < new Version(1, 1, 0))
 				MainWindow.FlyoutHsReplayNote.IsOpen = true;
@@ -165,6 +169,9 @@ namespace Hearthstone_Deck_Tracker
 			HSReplayNetHelper.UpdateAccount().Forget();
 
 			AssetDownloaders.SetupAssetDownloaders();
+
+			if(Config.Instance.BattlegroundsSessionRecapWindowOnStart)
+				Windows.BattlegroundsSessionWindow.Show();
 
 			Initialized = true;
 
@@ -247,7 +254,7 @@ namespace Hearthstone_Deck_Tracker
 							BackupManager.Run();
 							Game.MetaData.HearthstoneBuild = null;
 						}
-						Watchers.ExperienceWatcher.Run();
+						//Watchers.ExperienceWatcher.Run();
 
 						Remote.Mercenaries.Load();
 					}
@@ -270,7 +277,7 @@ namespace Hearthstone_Deck_Tracker
 					{
 						if(hsForegroundChanged)
 						{
-							Overlay.Update(true);
+							Overlay.OnHearthstoneFocused();
 							if(Config.Instance.WindowsTopmostIfHsForeground && Config.Instance.WindowsTopmost)
 							{
 								//if player topmost is set to true before opponent:
@@ -316,6 +323,9 @@ namespace Hearthstone_Deck_Tracker
 					Overlay.HideRestartRequiredWarning();
 					Helper.ClearCachedHearthstoneBuild();
 					TurnTimer.Instance.Stop();
+					Tier7Trial.Clear();
+					Overlay.BattlegroundsHeroPickingViewModel.Reset();
+					Overlay.BattlegroundsQuestPickingViewModel.Reset();
 
 					TrayIcon.MenuItemStartHearthstone.Visible = true;
 
@@ -367,9 +377,9 @@ namespace Hearthstone_Deck_Tracker
 			}
 			var top = dredged.Where(x => x.Info.DeckIndex > 0).Select(toCard).ToList();
 			var bottom = dredged.Where(x => x.Info.DeckIndex < 0).Select(toCard).ToList();
-			Overlay.UpdatePlayerCards(new List<Card>(Game.Player.PlayerCardList), reset, top, bottom);
+			Overlay.UpdatePlayerCards(new List<Card>(Game.Player.PlayerCardList), reset, top, bottom, new List<Sideboard>(Game.Player.PlayerSideboardsDict));
 			if(Windows.PlayerWindow.IsVisible)
-				Windows.PlayerWindow.UpdatePlayerCards(new List<Card>(Game.Player.PlayerCardList), reset, top, bottom);
+				Windows.PlayerWindow.UpdatePlayerCards(new List<Card>(Game.Player.PlayerCardList), reset, top, bottom, new List<Sideboard>(Game.Player.PlayerSideboardsDict));
 		}
 
 		internal static async void UpdateOpponentCards(bool reset = false)
@@ -390,11 +400,13 @@ namespace Hearthstone_Deck_Tracker
 		{
 			private static PlayerWindow? _playerWindow;
 			private static OpponentWindow? _opponentWindow;
+			private static BattlegroundsSessionWindow? _bgsSessionWindow;
 			private static TimerWindow? _timerWindow;
 			private static StatsWindow? _statsWindow;
 
 			public static PlayerWindow PlayerWindow => _playerWindow ??= new PlayerWindow(Game);
 			public static OpponentWindow OpponentWindow => _opponentWindow ??= new OpponentWindow(Game);
+			public static BattlegroundsSessionWindow BattlegroundsSessionWindow => _bgsSessionWindow ??= new BattlegroundsSessionWindow();
 			public static TimerWindow TimerWindow => _timerWindow ??= new TimerWindow(Config.Instance);
 			public static StatsWindow StatsWindow => _statsWindow ??= new StatsWindow();
 			public static CapturableOverlayWindow? CapturableOverlay;

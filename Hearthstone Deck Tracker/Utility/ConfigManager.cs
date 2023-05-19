@@ -210,6 +210,17 @@ namespace Hearthstone_Deck_Tracker.Utility
 					DataIssueResolver.RunDeckStatsFix = true;
 			}
 
+			if(!Config.Instance.DeckPanelOrderLocalPlayer.Contains(DeckPanel.Sideboards))
+			{
+				Config.Instance.DeckPanelOrderLocalPlayer = Config.Instance.DeckPanelOrderLocalPlayer.SelectMany(x =>
+				{
+					if(x == DeckPanel.CardsBottom)
+						return new[] { DeckPanel.CardsBottom, DeckPanel.Sideboards };
+					return new[] { x };
+				}).ToArray();
+				converted = true;
+			}
+
 			if(converted)
 			{
 				Log.Info("changed config values");

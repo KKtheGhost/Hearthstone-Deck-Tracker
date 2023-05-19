@@ -17,6 +17,8 @@ using HearthDb;
 using HearthDb.Enums;
 using Hearthstone_Deck_Tracker.Utility;
 using Hearthstone_Deck_Tracker.Controls.Error;
+using Hearthstone_Deck_Tracker.HsReplay;
+using Hearthstone_Deck_Tracker.Utility.ValueMoments.Actions;
 
 #endregion
 
@@ -93,54 +95,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 				}
 			}
 		}
-
-		internal async void SaveDecksToDisk(IEnumerable<Deck> decks)
-		{
-			var selectedDecks = DeckPickerList.SelectedDecks;
-			if (selectedDecks.Count > 1)
-			{
-				if(selectedDecks.Count > 10)
-				{
-					var result = await
-						this.ShowMessageAsync("Exporting multiple decks!", $"You are about to export {selectedDecks.Count} decks. Are you sure?",
-											  AffirmativeAndNegative);
-					if(result != MessageDialogResult.Affirmative)
-						return;
-				}
-				var dialog = new FolderBrowserDialog();
-				if(dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
-					return;
-				foreach(var deck in DeckPickerList.SelectedDecks)
-				{
-					//Helper.GetValidFilePath avoids overwriting files and properly handles duplicate deck names
-					var saveLocation = Path.Combine(dialog.SelectedPath, Helper.GetValidFilePath(dialog.SelectedPath, deck.Name, "xml"));
-					XmlManager<Deck>.Save(saveLocation, deck.GetSelectedDeckVersion());
-					Log.Info($"Saved {deck.GetSelectedDeckVersion().GetDeckInfo()} to file: {saveLocation}");
-				}
-				await this.ShowSavedFileMessage(dialog.SelectedPath);
-
-			}
-			else if(selectedDecks.Count > 0)
-			{
-				var deck = selectedDecks.First();
-				var fileName = Helper.ShowSaveFileDialog(Helper.RemoveInvalidFileNameChars(deck.Name), "xml");
-				if(fileName == null)
-					return;
-				XmlManager<Deck>.Save(fileName, deck.GetSelectedDeckVersion());
-				await this.ShowSavedFileMessage(fileName);
-				Log.Info($"Saved {deck.GetSelectedDeckVersion().GetDeckInfo()} to file: {fileName}");
-			}
-		}
-
-		internal void ExportIdsToClipboard(Deck deck)
-		{
-			if(deck == null)
-				return;
-			Clipboard.SetDataObject(Helper.DeckToIdString(deck.GetSelectedDeckVersion()));
-			this.ShowMessage("", "copied ids to clipboard").Forget();
-			Log.Info("Copied " + deck.GetSelectedDeckVersion().GetDeckInfo() + " to clipboard");
-		}
-
+		
 		internal async void ExportCardNamesToClipboard(Deck deck)
 		{
 			if(deck == null || !deck.GetSelectedDeckVersion().Cards.Any())
@@ -168,17 +123,7 @@ namespace Hearthstone_Deck_Tracker.Windows
 				Log.Error(ex);
 				ErrorManager.AddError("Error copying card names", LocUtil.Get("ShowMessage_CopyCardNames_Error"));
 			}
-		}
-
-		internal async void ExportDeckFromWeb()
-		{
-			var result = await ImportDeckFromUrl();
-			if(result.WasCancelled)
-				return;
-			if(result.Deck != null)
-				ShowExportFlyout(result.Deck);
-			else
-				await this.ShowMessageAsync("No deck found", "Could not find a deck on" + Environment.NewLine + result.Url);
+			HSReplayNetClientAnalytics.OnCopyDeck(CopyDeckAction.Action.CopyNames);
 		}
 	}
 }

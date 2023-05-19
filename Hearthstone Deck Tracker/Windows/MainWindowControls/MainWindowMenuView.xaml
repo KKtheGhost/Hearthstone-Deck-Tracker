@@ -35,6 +35,11 @@
                     <Setter Property="Command" Value="{Binding NewDeckCommand}"/>
                 </Style>
             </MenuItem.Resources>
+            <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Class_Deathknight}" CommandParameter="Deathknight">
+                <MenuItem.Icon>
+                    <Image Source="{StaticResource ClassIconDeathknightRound}" />
+                </MenuItem.Icon>
+            </MenuItem>
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Class_DemonHunter}" CommandParameter="DemonHunter">
                 <MenuItem.Icon>
                     <Image Source="{StaticResource ClassIconDemonHunterRound}" />
@@ -130,7 +135,6 @@
                     </Rectangle.OpacityMask>
                 </Rectangle>
             </MenuItem.Icon>
-            <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Web}" Command="{Binding ImportFromWebCommand}" />
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_DeckString}" Command="{Binding ImportFromDeckString}" />
             <Separator/>
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Constructed}" Command="{Binding ImportFromConstructedCommand}" />
@@ -138,10 +142,9 @@
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Brawl}" Command="{Binding ImportFromBrawlCommand}" />
             <Separator/>
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Other}">
-                <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Other_File}" Command="{Binding ImportFromFileCommand}" />
-                <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Other_Ids}" Command="{Binding ImportFromIdStringCommand}" />
                 <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Other_Clipboard}" Command="{Binding ImportFromClipboardCommand}" />
                 <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Other_LastGame}" Command="{Binding ImportFromLastGameCommand}" />
+                <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Import_Web}" Command="{Binding ImportFromWebCommand}" />
             </MenuItem>
         </MenuItem>
         <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export}" IsEnabled="{Binding HasSelectedDeck}">
@@ -153,9 +156,6 @@
                 </Rectangle>
             </MenuItem.Icon>
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export_Hearthstone}" Command="{Binding ExportDeckCommand}" />
-            <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export_Hearthstone_FromWeb}" Command="{Binding ExportFromWebCommand}" />
-            <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export_Xml}" Command="{Binding SaveToDiskCommand}" />
-            <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export_Ids}" Command="{Binding IdsToClipboardCommand}" />
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export_Clpiboard}" Command="{Binding NamesToClipboardCommand}" />
             <MenuItem Header="{lex:LocTextUpper MainWindow_Menu_Export_Screenshot}" Command="{Binding ScreenshotCommand}" />
         </MenuItem>

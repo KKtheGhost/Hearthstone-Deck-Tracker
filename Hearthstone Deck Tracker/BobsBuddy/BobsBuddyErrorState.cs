@@ -6,5 +6,7 @@
 		UpdateRequired,
 		NotEnoughData,
 		UnkownCards,
+		UnsupportedCards,
+		UnsupportedInteraction,
 	}
 }

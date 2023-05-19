@@ -120,6 +120,23 @@ namespace Hearthstone_Deck_Tracker.Live
 			return buddyDbfId;
 		}
 
+		private int? BgsQuestReward(Player player, bool heroPower)
+		{
+			return player.QuestRewards.FirstOrDefault(x => x.HasTag(GameTag.BACON_IS_HEROPOWER_QUESTREWARD) == heroPower)?.Card.DbfId;
+		}
+
+		// Return the dbf id for an entity, but blacklisted against common hero cards we don't want want to show in the overlay.
+		private int HeroDbfId(Entity? entity)
+		{
+			if(entity == null)
+				return 0;
+
+			if(entity.CardId == HearthDb.CardIds.NonCollectible.Neutral.BaconphheroTavernBrawl)
+				return 0;
+
+			return DbfId(entity);
+		}
+
 		private BoardState? GetBoardState()
 		{
 			if(Core.Game.PlayerEntity == null || Core.Game.OpponentEntity == null)
@@ -149,12 +166,14 @@ namespace Hearthstone_Deck_Tracker.Live
 			}
 			var format = Core.Game.CurrentFormat ?? Format.Wild;
 			var gameType = HearthDbConverter.GetBnetGameType(Core.Game.CurrentGameType, format);
+			var playerWeapon = DbfId(Find(player, WeaponId(Core.Game.PlayerEntity)));
+			var opponentWeapon = DbfId(Find(opponent, WeaponId(Core.Game.OpponentEntity)));
 
 			return new BoardState
 			{
 				Player = new BoardStatePlayer
 				{
-					Board = SortedDbfIds(player.Board.Where(x => x.IsMinion)),
+					Board = SortedDbfIds(player.Board.Where(x => x.IsMinionOrLocation)),
 					Deck = new BoardStateDeck
 					{
 						Cards = playerCardsDict,
@@ -165,21 +184,20 @@ namespace Hearthstone_Deck_Tracker.Live
 						Losses = games?.Count(g => g.Result == GameResult.Loss) ?? 0,
 						Size = player.DeckCount
 					},
-					Secrets = SortedDbfIds(player.Secrets),
-					Hero = DbfId(Find(player, HeroId(Core.Game.PlayerEntity))),
+					Secrets = SortedDbfIds(player.PlayerEntities.Where(x => x.IsInSecret)),
+					Hero = HeroDbfId(Find(player, HeroId(Core.Game.PlayerEntity))),
 					Hand = new BoardStateHand
 					{
 						Cards = SortedDbfIds(player.Hand),
 						Size = player.HandCount
 					},
-					HeroPower = DbfId(FindHeroPower(player)),
-					Weapon = BuddyDbfId(player) ?? DbfId(Find(player, WeaponId(Core.Game.PlayerEntity))),
-					Quest = Quest(player.Quests.FirstOrDefault()),
+					HeroPower = BgsQuestReward(player, true) ?? DbfId(FindHeroPower(player)),
+					Weapon = playerWeapon != 0 ? playerWeapon : (BgsQuestReward(player, false) ?? BuddyDbfId(player) ?? 0),
 					Fatigue = Core.Game.PlayerEntity.GetTag(GameTag.FATIGUE)
 				},
 				Opponent = new BoardStatePlayer
 				{
-					Board = SortedDbfIds(opponent.Board.Where(x => x.IsMinion)),
+					Board = SortedDbfIds(opponent.Board.Where(x => x.IsMinionOrLocation)),
 					Deck = new BoardStateDeck
 					{
 						Size = opponent.DeckCount
@@ -188,10 +206,10 @@ namespace Hearthstone_Deck_Tracker.Live
 					{
 						Size = opponent.HandCount
 					},
-					Hero = DbfId(Find(opponent, HeroId(Core.Game.OpponentEntity))),
-					HeroPower = DbfId(FindHeroPower(opponent)),
-					Weapon = BuddyDbfId(opponent) ?? DbfId(Find(opponent, WeaponId(Core.Game.OpponentEntity))),
-					Quest = Quest(opponent.Quests.FirstOrDefault()),
+					Secrets = SortedDbfIds(opponent.PlayerEntities.Where(x => x.IsInSecret)),
+					Hero = HeroDbfId(Find(opponent, HeroId(Core.Game.OpponentEntity))),
+					HeroPower = BgsQuestReward(opponent, true) ?? DbfId(FindHeroPower(opponent)),
+					Weapon = opponentWeapon != 0 ? opponentWeapon : (BgsQuestReward(opponent, false) ?? BuddyDbfId(opponent) ?? 0),
 					Fatigue = Core.Game.OpponentEntity.GetTag(GameTag.FATIGUE)
 				},
 				GameType = gameType,
@@ -220,6 +238,9 @@ namespace Hearthstone_Deck_Tracker.Live
 						simulationState = TwitchSimulationState.TooFewSimulations;
 						break;
 					case BobsBuddyErrorState.UnkownCards:
+					// Re-using unknown here to not add new state on twitch
+					case BobsBuddyErrorState.UnsupportedCards:
+					case BobsBuddyErrorState.UnsupportedInteraction:
 						simulationState = TwitchSimulationState.UnknownCards;
 						break;
 					case BobsBuddyErrorState.UpdateRequired:
